@@ -1,0 +1,51 @@
+{
+  "id": 7,
+  "title": "Test Page",
+  "slug": "",
+  "status": "draft",
+  "elementor_data": [
+    {
+      "id": "abc123",
+      "elType": "container",
+      "settings": {
+        "content_width": "boxed"
+      },
+      "elements": [
+        {
+          "id": "def456",
+          "elType": "widget",
+          "widgetType": "heading",
+          "settings": {
+            "title": "Hello World - Updated!",
+            "header_size": "h1",
+            "align": "center"
+          },
+          "elements": []
+        }
+      ]
+    },
+    {
+      "id": "section2",
+      "elType": "container",
+      "settings": {
+        "content_width": "full"
+      },
+      "elements": [
+        {
+          "id": "button1",
+          "elType": "widget",
+          "widgetType": "button",
+          "settings": {
+            "text": "Click Me!",
+            "align": "center",
+            "size": "lg"
+          },
+          "elements": []
+        }
+      ]
+    }
+  ],
+  "page_settings": [],
+  "pulled_at": "2026-01-27T21:59:40.376Z",
+  "remote_modified": "2026-01-27T21:59:55"
+}

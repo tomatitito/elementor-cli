@@ -1,0 +1,23 @@
+{
+  "run_id": "20260127-214353-b18b480c",
+  "status": "completed",
+  "started_at": "2026-01-27T21:43:53.759058670Z",
+  "completed_at": "2026-01-27T22:02:01.181760585Z",
+  "project_path": "/home/sprite/elementor-cli",
+  "prompt_preview": "Follow the @IMPLEMENTATION_PLAN and work on building the app described `specs`. Pick the next highes...",
+  "completion_promise": "COMPLETE",
+  "exit_reason": "promise_fulfilled",
+  "iterations": [
+    {
+      "iteration": 1,
+      "session_id": "2657944d-a3d6-4ed6-9a7c-98f632b34f74",
+      "started_at": "2026-01-27T21:43:53.759277291Z",
+      "ended_at": "2026-01-27T22:02:01.181184195Z",
+      "end_reason": "promise_found",
+      "tokens": {
+        "input": 9271,
+        "output": 47924
+      }
+    }
+  ]
+}

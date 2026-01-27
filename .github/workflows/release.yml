@@ -70,12 +70,12 @@ jobs:
             tar czf "${file}.tar.gz" "$file"
           done
 
-      - name: Create Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           draft: false
           prerelease: false
-          body_path: RELEASE_NOTES.md
+          generate_release_notes: true
           files: |
             release-assets/*.tar.gz
         env:

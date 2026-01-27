@@ -1,0 +1,147 @@
+{
+  "run_id": "20260127-213527-9a183f58",
+  "status": "running",
+  "started_at": "2026-01-27T21:35:27.053656402Z",
+  "project_path": "/home/sprite/elementor-cli",
+  "prompt_preview": "Follow the @IMPLEMENTATION_PLAN and work on building the app described `specs`. Pick the next highes...",
+  "completion_promise": "COMPLETE",
+  "iterations": [
+    {
+      "iteration": 1,
+      "session_id": "336d5558-fb35-48f2-a09d-15213b3c0744",
+      "started_at": "2026-01-27T21:35:27.053774412Z",
+      "ended_at": "2026-01-27T21:35:55.692268980Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 2,
+      "session_id": "96a32be6-5c4b-4fae-96cf-5c7dd961202a",
+      "started_at": "2026-01-27T21:35:55.692453311Z",
+      "ended_at": "2026-01-27T21:35:59.102568321Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 3,
+      "session_id": "40d20167-1d83-4296-b331-949e69949569",
+      "started_at": "2026-01-27T21:35:59.102768421Z",
+      "ended_at": "2026-01-27T21:36:02.233733883Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 4,
+      "session_id": "06559062-e7b9-44a7-a192-15b9d3ce9a93",
+      "started_at": "2026-01-27T21:36:02.233924533Z",
+      "ended_at": "2026-01-27T21:36:05.401350912Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 5,
+      "session_id": "445a8948-a9f9-45ee-8d97-5a3781d66f47",
+      "started_at": "2026-01-27T21:36:05.401628243Z",
+      "ended_at": "2026-01-27T21:36:08.473166096Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 6,
+      "session_id": "4cd9e74c-b7b8-4e3a-bc42-8c75bba1fef6",
+      "started_at": "2026-01-27T21:36:08.473475096Z",
+      "ended_at": "2026-01-27T21:36:11.641137675Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 7,
+      "session_id": "e1d72acc-7e8c-4dcb-8b37-1d31c3f95a67",
+      "started_at": "2026-01-27T21:36:11.641279135Z",
+      "ended_at": "2026-01-27T21:36:15.021907576Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 8,
+      "session_id": "75aa1630-d459-4888-8ac4-392fe4a25167",
+      "started_at": "2026-01-27T21:36:15.022093326Z",
+      "ended_at": "2026-01-27T21:36:18.242661112Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 9,
+      "session_id": "98785481-57cb-4554-9a36-3f0f194a0995",
+      "started_at": "2026-01-27T21:36:18.242843742Z",
+      "ended_at": "2026-01-27T21:36:21.548526583Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 10,
+      "session_id": "6074e3a6-9a39-4bd4-9973-e0a1fb1a704e",
+      "started_at": "2026-01-27T21:36:21.548734504Z",
+      "ended_at": "2026-01-27T21:36:24.746516834Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 11,
+      "session_id": "cbff8e19-f7c1-4fcd-b8ec-f2d7d0717165",
+      "started_at": "2026-01-27T21:36:24.746694174Z",
+      "ended_at": "2026-01-27T21:36:27.994160893Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 12,
+      "session_id": "adc38568-7b3b-40c1-886d-e7c832008280",
+      "started_at": "2026-01-27T21:36:27.994349953Z",
+      "ended_at": "2026-01-27T21:36:31.144501284Z",
+      "end_reason": "normal",
+      "tokens": {
+        "input": 0,
+        "output": 0
+      }
+    },
+    {
+      "iteration": 13,
+      "session_id": null,
+      "started_at": "2026-01-27T21:36:31.144744884Z"
+    }
+  ]
+}

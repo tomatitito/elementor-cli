@@ -1,0 +1,11 @@
+sites:
+  staging:
+    url: http://localhost:8080
+    username: admin
+    appPassword: 8ku5xvgYPUuz7cAMUtsqKDX1
+staging:
+  path: .elementor-cli/staging
+  service: wordpress
+  url: http://localhost:8080
+pagesDir: .elementor-cli/pages
+defaultSite: staging

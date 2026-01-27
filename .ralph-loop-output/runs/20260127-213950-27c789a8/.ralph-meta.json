@@ -1,0 +1,15 @@
+{
+  "run_id": "20260127-213950-27c789a8",
+  "status": "running",
+  "started_at": "2026-01-27T21:39:50.579048938Z",
+  "project_path": "/home/sprite/elementor-cli",
+  "prompt_preview": "Follow the @IMPLEMENTATION_PLAN and work on building the app described `specs`. Pick the next highes...",
+  "completion_promise": "COMPLETE",
+  "iterations": [
+    {
+      "iteration": 1,
+      "session_id": null,
+      "started_at": "2026-01-27T21:39:50.579209069Z"
+    }
+  ]
+}
