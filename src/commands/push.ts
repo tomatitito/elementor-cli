@@ -133,7 +133,7 @@ See also:
             slug: localData.meta.slug,
             status: localData.meta.status,
             elementorData: parser.serializeElements(localData.elements),
-            pageSettings: parser.serializeSettings(localData.settings),
+            pageSettings: localData.settings,
           });
 
           // Update local remote_modified timestamp

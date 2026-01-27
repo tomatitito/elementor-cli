@@ -67,7 +67,7 @@ export class WordPressClient {
     title: string;
     status?: string;
     elementorData?: string;
-    pageSettings?: string;
+    pageSettings?: Record<string, unknown>;
   }): Promise<WPPage> {
     return this.request<WPPage>("/wp/v2/pages", {
       method: "POST",
@@ -77,7 +77,7 @@ export class WordPressClient {
         meta: {
           _elementor_edit_mode: "builder",
           _elementor_data: data.elementorData || "[]",
-          _elementor_page_settings: data.pageSettings || "{}",
+          _elementor_page_settings: data.pageSettings || {},
         },
       }),
     });
@@ -90,7 +90,7 @@ export class WordPressClient {
       status?: string;
       slug?: string;
       elementorData?: string;
-      pageSettings?: string;
+      pageSettings?: Record<string, unknown>;
     }
   ): Promise<WPPage> {
     const body: Record<string, unknown> = {};
@@ -106,7 +106,7 @@ export class WordPressClient {
           data.elementorData;
       }
       if (data.pageSettings) {
-        (body.meta as Record<string, string>)._elementor_page_settings =
+        (body.meta as Record<string, unknown>)._elementor_page_settings =
           data.pageSettings;
       }
     }

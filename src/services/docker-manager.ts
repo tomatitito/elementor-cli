@@ -143,7 +143,7 @@ export class DockerManager {
   }
 
   async execWpCli(command: string[]): Promise<string> {
-    const args = ["exec", this.service, "wp", ...command];
+    const args = ["exec", this.service, "wp", "--allow-root", ...command];
     return this.runCommand(args, { capture: true });
   }
 
@@ -236,7 +236,7 @@ volumes:
   }
 
   async dbDump(): Promise<string> {
-    return this.execWpCli(["db", "export", "-"]);
+    return this.execWpCli(["db", "export", "--skip-ssl", "-"]);
   }
 
   async dbRestore(sql: string): Promise<void> {
