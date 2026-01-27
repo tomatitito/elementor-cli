@@ -1,0 +1,28 @@
+{
+  "name": "elementor-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "elementor-cli": "./dist/elementor-cli"
+  },
+  "scripts": {
+    "dev": "bun --watch run src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outfile dist/elementor-cli --target bun",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "@inquirer/prompts": "^5.0.0",
+    "zod": "^3.22.0",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.0",
+    "yaml": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.4.0",
+    "@biomejs/biome": "^1.5.0"
+  }
+}
