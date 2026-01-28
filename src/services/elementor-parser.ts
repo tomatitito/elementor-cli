@@ -19,10 +19,13 @@ export class ElementorParser {
 
     if (wpPage.meta._elementor_page_settings) {
       try {
-        pageSettings =
+        const parsed =
           typeof wpPage.meta._elementor_page_settings === "string"
             ? JSON.parse(wpPage.meta._elementor_page_settings)
             : wpPage.meta._elementor_page_settings;
+        // Ensure settings is always an object, not an array
+        // WordPress/Elementor can return [] for empty settings, but expects {}
+        pageSettings = Array.isArray(parsed) ? {} : parsed;
       } catch {
         pageSettings = {};
       }

@@ -83,7 +83,7 @@ export class LocalStore {
       return null;
     }
 
-    const [page, elements, settings, meta] = await Promise.all([
+    const [page, elements, rawSettings, meta] = await Promise.all([
       pageFile.json() as Promise<PageData>,
       Bun.file(`${dir}/elements.json`).json() as Promise<ElementorElement[]>,
       Bun.file(`${dir}/settings.json`).json() as Promise<PageSettings>,
@@ -93,6 +93,10 @@ export class LocalStore {
         status: string;
       }>,
     ]);
+
+    // Ensure settings is always an object, not an array
+    // WordPress/Elementor can return [] for empty settings, but expects {}
+    const settings = Array.isArray(rawSettings) ? {} : rawSettings;
 
     return { page, elements, settings, meta };
   }
@@ -112,7 +116,10 @@ export class LocalStore {
     if (!(await file.exists())) {
       return null;
     }
-    return file.json();
+    const settings = await file.json();
+    // Ensure settings is always an object, not an array
+    // WordPress/Elementor can return [] for empty settings, but expects {}
+    return Array.isArray(settings) ? {} : settings;
   }
 
   async loadMeta(siteName: string, pageId: number): Promise<{ title: string; slug: string; status: string } | null> {

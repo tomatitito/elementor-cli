@@ -105,7 +105,9 @@ export class WordPressClient {
         (body.meta as Record<string, string>)._elementor_data =
           data.elementorData;
       }
-      if (data.pageSettings) {
+      // Only send pageSettings if it has actual content
+      // Sending empty {} causes WordPress to store it as a string which breaks Elementor
+      if (data.pageSettings && Object.keys(data.pageSettings).length > 0) {
         (body.meta as Record<string, unknown>)._elementor_page_settings =
           data.pageSettings;
       }

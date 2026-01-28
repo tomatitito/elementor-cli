@@ -244,9 +244,12 @@ volumes:
     const tempFile = `/tmp/elementor-cli-restore-${Date.now()}.sql`;
     await Bun.write(tempFile, sql);
 
+    // Get the project directory name (last segment of path) for the container name
+    const projectName = this.composePath.split("/").filter(Boolean).pop() || "staging";
+    const containerName = `${projectName}-${this.service}-1`;
+
     // Copy file into container and import
     await new Promise<void>((resolve, reject) => {
-      const containerName = `${this.composePath.replace(/[^a-zA-Z0-9]/g, "")}-${this.service}-1`;
       const proc = spawn(
         "docker",
         ["cp", tempFile, `${containerName}:/tmp/restore.sql`],
@@ -258,7 +261,24 @@ volumes:
       });
     });
 
-    await this.execWpCli(["db", "import", "/tmp/restore.sql"]);
+    // Use mysql directly with --skip-ssl to avoid SSL errors with containerized MySQL
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(
+        "docker",
+        [
+          "exec",
+          containerName,
+          "bash",
+          "-c",
+          "mysql -h db -u wordpress -pwordpress --skip-ssl wordpress < /tmp/restore.sql",
+        ],
+        { stdio: "inherit" }
+      );
+      proc.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`Failed to import database`));
+      });
+    });
 
     // Cleanup temp file
     const { unlink } = await import("node:fs/promises");
