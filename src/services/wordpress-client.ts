@@ -53,7 +53,10 @@ export class WordPressClient {
     if (options.status && options.status !== "all") {
       params.set("status", options.status);
     } else {
-      params.set("status", "publish,draft,private,pending");
+      // WordPress REST API requires separate status[] parameters
+      for (const status of ["publish", "draft", "private", "pending"]) {
+        params.append("status[]", status);
+      }
     }
 
     return this.request<WPPage[]>(`/wp/v2/pages?${params}`);

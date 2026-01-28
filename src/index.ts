@@ -8,13 +8,14 @@ import { diffCommand } from "./commands/diff.js";
 import { previewCommand } from "./commands/preview.js";
 import { dbCommand } from "./commands/db.js";
 import { revisionsCommand } from "./commands/revisions.js";
+import pkg from "../package.json";
 
 const program = new Command();
 
 program
   .name("elementor-cli")
   .description("Manage Elementor pages from the command line")
-  .version("0.1.0")
+  .version(pkg.version)
   .addHelpText(
     "after",
     `
