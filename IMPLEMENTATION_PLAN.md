@@ -778,3 +778,6 @@ src/
 - [ ] Plugin for VSCode/other editors
 - [ ] Support for Elementor Pro widgets
 - [x] Export to static HTML
+- [x] Self-update command (`update`) - Auto-download and install latest release from GitHub
+- [x] WordPress page templates support - Pull/push syncs page templates (e.g., `elementor_canvas`)
+- [x] Preview element command (`preview element`) - Fetch specific element by ID from local files
