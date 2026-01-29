@@ -136,9 +136,14 @@ See also:
             pageSettings: localData.settings,
           });
 
-          // Update local remote_modified timestamp
+          // Update local page data with current values and new remote timestamp
           const updatedPage = await client.getPage(pageId);
           localData.page.remote_modified = updatedPage.modified;
+          localData.page.elementor_data = localData.elements;
+          localData.page.page_settings = localData.settings;
+          localData.page.title = localData.meta.title;
+          localData.page.slug = localData.meta.slug;
+          localData.page.status = localData.meta.status;
           await store.savePage(siteName, localData.page);
 
           spinner.succeed(`Pushed page ${pageId}: "${localData.meta.title}"`);

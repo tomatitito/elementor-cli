@@ -82,7 +82,7 @@ export class ElementorParser {
       if (el.id === id) {
         return el;
       }
-      if (el.elements.length > 0) {
+      if (el.elements && el.elements.length > 0) {
         const found = this.findElement(el.elements, id);
         if (found) return found;
       }
@@ -97,7 +97,7 @@ export class ElementorParser {
     let count = 0;
     for (const el of elements) {
       count++;
-      if (el.elements.length > 0) {
+      if (el.elements && el.elements.length > 0) {
         count += this.countElements(el.elements);
       }
     }
@@ -115,7 +115,7 @@ export class ElementorParser {
         if (el.elType === "widget") {
           widgets.push(el);
         }
-        if (el.elements.length > 0) {
+        if (el.elements && el.elements.length > 0) {
           traverse(el.elements);
         }
       }
@@ -177,7 +177,7 @@ export class ElementorParser {
     const traverse = (els: ElementorElement[]) => {
       for (const el of els) {
         ids.push(el.id);
-        if (el.elements.length > 0) {
+        if (el.elements && el.elements.length > 0) {
           traverse(el.elements);
         }
       }
