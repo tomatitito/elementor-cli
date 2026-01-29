@@ -193,6 +193,7 @@ previewCommand
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
   .option("-s, --site <name>", "Site name for local pages")
   .option("-a, --all", "Sync all locally stored pages")
+  .option("--no-rewrite-urls", "Disable URL rewriting from production to staging")
   .addHelpText(
     "after",
     `
@@ -200,12 +201,14 @@ Examples:
   $ elementor-cli preview sync 42              Sync single page
   $ elementor-cli preview sync --all           Sync all local pages
   $ elementor-cli preview sync 42 --site prod  Sync page from specific site
+  $ elementor-cli preview sync 42 --no-rewrite-urls  Keep original URLs
 
 This command:
   1. Reads local page data from .elementor-cli/pages/
-  2. Creates or updates the page in staging WordPress
-  3. Updates Elementor meta (_elementor_data, _elementor_page_settings)
-  4. Flushes Elementor CSS cache
+  2. Rewrites asset URLs from production to staging (unless --no-rewrite-urls)
+  3. Creates or updates the page in staging WordPress
+  4. Updates Elementor meta (_elementor_data, _elementor_page_settings)
+  5. Flushes Elementor CSS cache
 
 See also:
   elementor-cli pull             Download pages from remote
@@ -223,6 +226,16 @@ See also:
       if (!siteName) {
         logger.error("No site specified and no default site configured.");
         process.exit(1);
+      }
+
+      // Get source site URL for URL rewriting
+      const siteConfig = config.sites[siteName];
+      const sourceUrl = siteConfig?.url;
+      const targetUrl = config.staging.url;
+      const shouldRewriteUrls = options.rewriteUrls !== false && sourceUrl && targetUrl;
+
+      if (shouldRewriteUrls) {
+        logger.dim(`URL rewriting enabled: ${sourceUrl} → ${targetUrl}`);
       }
 
       // Check if staging is running
@@ -277,6 +290,15 @@ See also:
             logger.dim(`  Created new page in staging (ID: ${newId})`);
           }
 
+          // Prepare elements and settings (with optional URL rewriting)
+          let elements = localData.elements;
+          let settings = localData.settings;
+
+          if (shouldRewriteUrls) {
+            elements = parser.rewriteUrls(elements, sourceUrl, targetUrl);
+            settings = parser.rewriteSettingsUrls(settings, sourceUrl, targetUrl);
+          }
+
           // Update Elementor meta
           await docker.updatePostMeta(
             id,
@@ -286,12 +308,12 @@ See also:
           await docker.updatePostMeta(
             id,
             "_elementor_data",
-            parser.serializeElements(localData.elements)
+            parser.serializeElements(elements)
           );
           await docker.updatePostMeta(
             id,
             "_elementor_page_settings",
-            parser.serializeSettings(localData.settings)
+            parser.serializeSettings(settings)
           );
 
           // Flush CSS cache

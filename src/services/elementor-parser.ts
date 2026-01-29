@@ -171,6 +171,92 @@ export class ElementorParser {
     return { added, removed, modified };
   }
 
+  /**
+   * Rewrite URLs in elements from source to target domain
+   * Used when syncing pages to staging to replace production URLs with localhost
+   */
+  rewriteUrls(
+    elements: ElementorElement[],
+    sourceUrl: string,
+    targetUrl: string
+  ): ElementorElement[] {
+    const cloned = this.cloneElements(elements);
+    this.rewriteUrlsInPlace(cloned, sourceUrl, targetUrl);
+    return cloned;
+  }
+
+  private rewriteUrlsInPlace(
+    elements: ElementorElement[],
+    sourceUrl: string,
+    targetUrl: string
+  ): void {
+    // Normalize URLs (remove trailing slashes for consistent matching)
+    const source = sourceUrl.replace(/\/$/, "");
+    const target = targetUrl.replace(/\/$/, "");
+
+    for (const el of elements) {
+      // Rewrite URLs in settings
+      if (el.settings) {
+        this.rewriteUrlsInObject(el.settings, source, target);
+      }
+
+      // Recursively process child elements
+      if (el.elements && el.elements.length > 0) {
+        this.rewriteUrlsInPlace(el.elements, source, target);
+      }
+    }
+  }
+
+  private rewriteUrlsInObject(
+    obj: Record<string, unknown>,
+    source: string,
+    target: string
+  ): void {
+    for (const key of Object.keys(obj)) {
+      const value = obj[key];
+
+      if (typeof value === "string") {
+        // Replace URLs in string values
+        if (value.includes(source)) {
+          obj[key] = value.split(source).join(target);
+        }
+      } else if (Array.isArray(value)) {
+        // Process arrays
+        for (let i = 0; i < value.length; i++) {
+          if (typeof value[i] === "string") {
+            if (value[i].includes(source)) {
+              value[i] = value[i].split(source).join(target);
+            }
+          } else if (value[i] && typeof value[i] === "object") {
+            this.rewriteUrlsInObject(
+              value[i] as Record<string, unknown>,
+              source,
+              target
+            );
+          }
+        }
+      } else if (value && typeof value === "object") {
+        // Recursively process nested objects
+        this.rewriteUrlsInObject(value as Record<string, unknown>, source, target);
+      }
+    }
+  }
+
+  /**
+   * Rewrite URLs in page settings
+   */
+  rewriteSettingsUrls(
+    settings: PageSettings,
+    sourceUrl: string,
+    targetUrl: string
+  ): PageSettings {
+    const cloned = JSON.parse(JSON.stringify(settings)) as PageSettings;
+    const source = sourceUrl.replace(/\/$/, "");
+    const target = targetUrl.replace(/\/$/, "");
+    this.rewriteUrlsInObject(cloned, source, target);
+    return cloned;
+  }
+
   private getAllIds(elements: ElementorElement[]): string[] {
     const ids: string[] = [];
 

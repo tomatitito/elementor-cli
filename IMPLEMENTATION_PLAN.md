@@ -757,7 +757,7 @@ src/
 
 #### Staging Environment Improvements
 - [x] Hide WordPress admin bar in staging - Disable admin toolbar so staging matches production appearance (`show_admin_bar_front` option or `WP_ADMIN_BAR` constant)
-- [ ] Asset URL rewriting - Rewrite image/asset URLs to localhost when syncing to staging
+- [x] Asset URL rewriting - Rewrite image/asset URLs to localhost when syncing to staging
 
 #### Other Features
 - [ ] Template library for common page structures (`--template` option for `pages create`)
