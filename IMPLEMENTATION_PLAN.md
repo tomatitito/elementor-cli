@@ -4,6 +4,19 @@ See [specs/](./specs/readme.md) for the full specification of commands, configur
 
 ---
 
+## Implementation Status
+
+**All phases complete.** Current version: **0.2.1**
+
+| Phase | Status |
+|-------|--------|
+| Phase 1: Foundation | ✅ Complete |
+| Phase 2: Core Operations | ✅ Complete |
+| Phase 3: Staging Environment | ✅ Complete |
+| Phase 4: Revisions & Polish | ✅ Complete |
+
+---
+
 ## Overview
 
 Build a TypeScript CLI tool (using Bun) for managing Elementor pages programmatically.
@@ -144,11 +157,11 @@ Examples:
 ### Help Checklist
 
 Each command implementation must include:
-- [ ] Main command `.description()`
-- [ ] All options with descriptions
-- [ ] `.addHelpText()` with examples section
-- [ ] Argument descriptions for all positional args
-- [ ] Related commands in "See also" section (where applicable)
+- [x] Main command `.description()`
+- [x] All options with descriptions
+- [x] `.addHelpText()` with examples section
+- [x] Argument descriptions for all positional args
+- [x] Related commands in "See also" section (where applicable)
 
 ---
 
@@ -248,10 +261,8 @@ src/
 ├── commands/
 │   ├── preview.ts
 │   └── db.ts
-├── services/
-│   └── docker-manager.ts
-└── templates/
-    └── docker-compose.yml
+└── services/
+    └── docker-manager.ts    # Includes docker-compose.yml generation
 ```
 
 **Deliverable:** Working local preview environment with database backup/restore
@@ -298,15 +309,17 @@ See [specs/structure.md](./specs/structure.md) for detailed project layout.
 ```json
 {
   "name": "elementor-cli",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "type": "module",
   "bin": {
-    "elementor-cli": "./dist/index.js"
+    "elementor-cli": "./dist/elementor-cli"
   },
   "scripts": {
-    "dev": "bun run src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target node",
-    "test": "bun test"
+    "dev": "bun --watch run src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outfile dist/elementor-cli --target bun",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "commander": "^12.0.0",
@@ -318,7 +331,8 @@ See [specs/structure.md](./specs/structure.md) for detailed project layout.
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "@biomejs/biome": "^1.5.0"
   }
 }
 ```
@@ -359,20 +373,20 @@ See [specs/structure.md](./specs/structure.md) for detailed project layout.
 
 ### Manual Testing Checklist
 
-- [ ] `config init` creates valid .elementor-cli.yaml
-- [ ] `config test` verifies connection to real WordPress site
-- [ ] `pages list` shows Elementor pages
-- [ ] `pull <id>` downloads page with correct structure
-- [ ] Edit elements.json, `diff` shows changes
-- [ ] `push` updates remote page
-- [ ] `preview start` launches Docker
-- [ ] `preview sync` updates staging
-- [ ] `preview open` opens browser
-- [ ] `db dump` creates database backup
-- [ ] `db list` shows available dumps
-- [ ] `db restore` restores database from dump
-- [ ] `revisions list` shows history
-- [ ] `revisions restore` restores previous version
+- [x] `config init` creates valid .elementor-cli.yaml
+- [x] `config test` verifies connection to real WordPress site
+- [x] `pages list` shows Elementor pages
+- [x] `pull <id>` downloads page with correct structure
+- [x] Edit elements.json, `diff` shows changes
+- [x] `push` updates remote page
+- [x] `preview start` launches Docker
+- [x] `preview sync` updates staging
+- [x] `preview open` opens browser
+- [x] `db dump` creates database backup
+- [x] `db list` shows available dumps
+- [x] `db restore` restores database from dump
+- [x] `revisions list` shows history
+- [x] `revisions restore` restores previous version
 
 ### Test Environment
 
@@ -651,10 +665,104 @@ The workflow will automatically build binaries for all platforms and create a pu
 
 ---
 
+## Planned: Studio (Web UI)
+
+Local web interface for side-by-side page editing and comparison.
+
+### Concept
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  elementor-cli studio                                           │
+├───────────────────────────────┬─────────────────────────────────┤
+│                               │                                 │
+│   Original (Live Site)        │   Edited (Staging)              │
+│   ┌───────────────────────┐   │   ┌───────────────────────────┐ │
+│   │                       │   │   │                           │ │
+│   │   <iframe>            │   │   │   <iframe>                │ │
+│   │   production site     │   │   │   localhost staging       │ │
+│   │                       │   │   │                           │ │
+│   └───────────────────────┘   │   └───────────────────────────┘ │
+│                               │                                 │
+├───────────────────────────────┴─────────────────────────────────┤
+│  Controls: [Sync] [Push] [Refresh CSS] [Select Page ▼]         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Command
+
+```bash
+elementor-cli studio [--port 3000]
+```
+
+- Starts local web server
+- Opens browser automatically
+- Left panel: Original page from live/production site (iframe)
+- Right panel: Local staging version (iframe)
+- Control bar: Sync, Push, Regenerate CSS, page selector
+
+### Technical Approach
+
+- **Server:** Bun.serve or Hono (lightweight, built-in to Bun)
+- **UI:** Static HTML/CSS/JS (minimal dependencies, no build step)
+- **API:** Local REST endpoints that wrap existing CLI services
+  - `GET /api/pages` - List pages
+  - `POST /api/sync/:id` - Sync page to staging
+  - `POST /api/push/:id` - Push to production
+  - `POST /api/regenerate-css/:id` - Invalidate CSS cache
+- **Config:** Reads from existing `.elementor-cli.yaml`
+
+### Files
+
+```
+src/
+├── commands/
+│   └── studio.ts           # Studio command
+├── studio/
+│   ├── server.ts           # HTTP server setup
+│   ├── api.ts              # API route handlers
+│   └── public/
+│       ├── index.html      # Main UI
+│       ├── style.css
+│       └── app.js
+```
+
+---
+
 ## Future Enhancements
 
-- [ ] Template library for common page structures
-- [ ] Bulk operations (pull/push all pages)
+### Infrastructure
+- [ ] Version-based releases - Trigger GitHub releases when `package.json` version changes on push (replace tag-based workflow)
+- [ ] Test fixture - WordPress + Elementor Docker setup with seed data (test pages, application password) for local and CI testing. Once complete, remove temporary directories: `docker/`, `wordpress_01/`, `database_dumps/`
+- [ ] End-to-end tests using testcontainers - Spin up real WordPress + MySQL containers for integration testing (CSS editing, URL rewriting, database dump, pull/push workflows)
+
+### Features
+
+#### CSS & URL Management
+
+> **Note:** These features have corresponding GitHub issues with detailed requirements and use cases.
+
+- [ ] `regenerate-css <page-id>` - Invalidate `_elementor_css` meta to force CSS regeneration → [GitHub Issue #1](../../issues/1)
+- [ ] `audit <page-id>` - Detect URL mismatches, missing assets, stale CSS → [GitHub Issue #2](../../issues/2)
+- [ ] `search-replace <page-id> <search> <replace>` - URL migration with `--dry-run`, `--include-css`, `--all-pages` options → [GitHub Issue #3](../../issues/3)
+- [ ] `status <page-id>` - Show CSS metadata, generation timestamps, and URL analysis → [GitHub Issue #4](../../issues/4)
+
+#### Studio (Web UI)
+- [ ] `studio` command - Side-by-side web UI for comparing and editing pages (see [Planned: Studio](#planned-studio-web-ui) section above)
+
+#### Export & Import
+- [ ] `export <page-id>` - Export page as Elementor-compatible JSON template
+  - `--output <file>` - Save to file for import via WordPress dashboard (Templates → Import)
+  - `--clipboard` - Copy to clipboard for paste directly in Elementor editor
+
+#### Staging Environment Improvements
+- [ ] Hide WordPress admin bar in staging - Disable admin toolbar so staging matches production appearance (`show_admin_bar_front` option or `WP_ADMIN_BAR` constant)
+- [ ] Asset URL rewriting - Rewrite image/asset URLs to localhost when syncing to staging
+
+#### Other Features
+- [ ] Template library for common page structures (`--template` option for `pages create`)
+- [x] Bulk operations (pull/push all pages) - **Implemented via `--all` flag**
+- [ ] SSH database dump for remote sites (`db dump --ssh`)
 - [ ] Watch mode for automatic sync
 - [ ] Visual diff output (side-by-side)
 - [ ] Plugin for VSCode/other editors

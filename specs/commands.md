@@ -42,13 +42,13 @@ List and manage pages.
 
 ```bash
 # List all Elementor pages on remote site
-elementor-cli pages list [--site <name>] [--status draft|publish|all]
+elementor-cli pages list [--site <name>] [--status publish|draft|private|all]
 
 # Show page details
 elementor-cli pages info <page-id> [--site <name>]
 
 # Create a new page
-elementor-cli pages create <title> [--template <template-name>] [--site <name>]
+elementor-cli pages create <title> [--status draft|publish] [--site <name>]
 
 # Delete a page
 elementor-cli pages delete <page-id> [--site <name>] [--force]
@@ -247,14 +247,11 @@ The `preview sync` command:
 
 ## `elementor-cli db`
 
-Database backup and restore operations.
+Database backup and restore operations for the local staging environment.
 
 ```bash
 # Create a database dump from staging environment
-elementor-cli db dump [--output <file>] [--compose-file <path>]
-
-# Create a database dump from remote site (requires SSH access)
-elementor-cli db dump --site <name> --ssh <user@host> [--output <file>]
+elementor-cli db dump [--compose-file <path>]
 
 # Restore a database dump to staging
 elementor-cli db restore <file> [--compose-file <path>]
@@ -281,8 +278,9 @@ elementor-cli db restore .elementor-cli/dumps/staging-2024-01-27-143052.sql
 
 ### Mechanism
 
-- For staging: Uses `docker compose exec <service> wp db export -`
-- For remote (with SSH): Uses `ssh <host> "wp db export -"`
+Uses Docker to execute WP-CLI commands:
+- Dump: `docker compose exec <service> wp db export -`
+- Restore: Pipes SQL file to MySQL container
 
 ---
 

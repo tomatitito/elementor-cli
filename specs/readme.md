@@ -23,7 +23,6 @@ A CLI tool for managing Elementor pages programmatically. Download, edit, previe
 | [Elementor JSON](./elementor-json.md) | How to edit Elementor page data |
 | [WordPress API](./api.md) | REST API endpoints and authentication |
 | [Project Structure](./structure.md) | Source code organization and file layout |
-| [Development Guide](./agent.md) | Using Bun for building and testing |
 
 ---
 
@@ -33,11 +32,11 @@ A CLI tool for managing Elementor pages programmatically. Download, edit, previe
 # 1. Initialize project config
 elementor-cli config init
 
-# 2. Add your WordPress site
+# 2. Add your WordPress site (interactive prompts or flags)
 elementor-cli config add production \
   --url https://example.com \
   --username admin \
-  --app-password "xxxx xxxx xxxx xxxx"
+  --app-password "xxxx xxxx xxxx xxxx xxxx xxxx"
 
 # 3. Test connection
 elementor-cli config test

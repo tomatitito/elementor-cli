@@ -10,9 +10,16 @@ File and directory structure for `elementor-cli`.
 elementor-cli/
 ├── package.json
 ├── tsconfig.json
-├── bunfig.toml
 ├── biome.json
 ├── README.md
+├── IMPLEMENTATION_PLAN.md          # Development roadmap
+├── specs/                          # This documentation
+│   ├── readme.md
+│   ├── commands.md
+│   ├── configuration.md
+│   ├── api.md
+│   ├── elementor-json.md
+│   └── structure.md
 ├── src/
 │   ├── index.ts                    # CLI entry point
 │   ├── commands/
@@ -26,6 +33,7 @@ elementor-cli/
 │   │   └── diff.ts                 # diff command
 │   ├── services/
 │   │   ├── wordpress-client.ts     # REST API client
+│   │   ├── wordpress-client.test.ts # Tests (colocated with source)
 │   │   ├── elementor-parser.ts     # JSON parsing/transformation
 │   │   ├── local-store.ts          # Local file operations
 │   │   ├── docker-manager.ts       # Docker compose operations
@@ -39,15 +47,8 @@ elementor-cli/
 │       ├── config-store.ts         # YAML config read/write
 │       ├── logger.ts               # Colored output, spinners
 │       └── prompts.ts              # Interactive prompts
-├── templates/
-│   ├── docker-compose.yml          # Default staging setup
-│   └── page-templates/
-│       └── blank.json              # Blank page template
-└── tests/
-    ├── config-store.test.ts
-    ├── wordpress-client.test.ts
-    ├── elementor-parser.test.ts
-    └── local-store.test.ts
+└── dist/                           # Build output
+    └── elementor-cli               # Compiled executable
 ```
 
 ---
@@ -60,16 +61,23 @@ elementor-cli/
 ```typescript
 #!/usr/bin/env bun
 import { Command } from "commander";
-import { configCommand } from "./commands/config";
-import { pagesCommand } from "./commands/pages";
+import { configCommand } from "./commands/config.js";
+import { pagesCommand } from "./commands/pages.js";
 // ... other commands
+import pkg from "../package.json";
 
 const program = new Command();
 
 program
   .name("elementor-cli")
   .description("Manage Elementor pages from the command line")
-  .version("0.1.0");
+  .version(pkg.version)
+  .addHelpText("after", `
+Examples:
+  $ elementor-cli config init                    Initialize configuration
+  $ elementor-cli pages list                     List all Elementor pages
+  $ elementor-cli pull 42                        Download page with ID 42
+  `);
 
 program.addCommand(configCommand);
 program.addCommand(pagesCommand);
@@ -173,11 +181,11 @@ Shared utilities:
 
 ---
 
-## Templates
+## Generated Files
 
 ### docker-compose.yml
 
-Default staging environment template:
+When you run `elementor-cli preview init`, this docker-compose.yml is generated:
 
 ```yaml
 services:
@@ -210,29 +218,20 @@ volumes:
   db_data:
 ```
 
-### Page Templates
-
-**templates/page-templates/blank.json:**
-```json
-{
-  "elementor_data": [],
-  "page_settings": {}
-}
-```
-
 ---
 
 ## Tests
 
-Test files mirror the source structure:
+Tests are colocated with source files:
 
 ```
-tests/
-├── config-store.test.ts      # Tests for src/utils/config-store.ts
-├── wordpress-client.test.ts  # Tests for src/services/wordpress-client.ts
-├── elementor-parser.test.ts  # Tests for src/services/elementor-parser.ts
-├── local-store.test.ts       # Tests for src/services/local-store.ts
-└── helpers.ts                # Shared test utilities
+src/services/
+└── wordpress-client.test.ts  # Tests for wordpress-client.ts
+```
+
+Run tests with:
+```bash
+bun test
 ```
 
 ---
@@ -244,7 +243,7 @@ tests/
 ```json
 {
   "name": "elementor-cli",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "type": "module",
   "bin": {
     "elementor-cli": "./dist/elementor-cli"
