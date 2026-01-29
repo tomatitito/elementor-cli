@@ -107,38 +107,83 @@ export class DockerManager {
         capture: true,
       });
 
-      if (!output) {
-        return { running: false, services: [] };
-      }
-
       const services: DockerStatus["services"] = [];
 
-      // docker compose ps --format json outputs one JSON object per line
-      for (const line of output.split("\n")) {
-        if (!line.trim()) continue;
-        try {
-          const container = JSON.parse(line);
-          services.push({
-            name: container.Service || container.Name,
-            status: container.State || container.Status,
-            ports: container.Publishers
-              ? container.Publishers.map(
-                  (p: { PublishedPort: number; TargetPort: number }) =>
-                    `${p.PublishedPort}:${p.TargetPort}`
-                )
-              : [],
-          });
-        } catch {
-          // Skip unparseable lines
+      if (output) {
+        // docker compose ps --format json outputs one JSON object per line
+        for (const line of output.split("\n")) {
+          if (!line.trim()) continue;
+          try {
+            const container = JSON.parse(line);
+            services.push({
+              name: container.Service || container.Name,
+              status: container.State || container.Status,
+              ports: container.Publishers
+                ? container.Publishers.map(
+                    (p: { PublishedPort: number; TargetPort: number }) =>
+                      `${p.PublishedPort}:${p.TargetPort}`
+                  )
+                : [],
+            });
+          } catch {
+            // Skip unparseable lines
+          }
         }
       }
 
-      return {
-        running: services.some((s) => s.status === "running"),
-        services,
-      };
+      // If docker compose ps found running containers, use that result
+      if (services.some((s) => s.status === "running")) {
+        return { running: true, services };
+      }
+
+      // Fallback: check if staging URL is accessible
+      // This handles cases where containers were started from a different
+      // docker-compose project or with a different project name
+      const urlAccessible = await this.checkUrlAccessible();
+      if (urlAccessible) {
+        return {
+          running: true,
+          services: services.length > 0 ? services : [
+            { name: "wordpress", status: "running (detected via URL)", ports: [] }
+          ],
+        };
+      }
+
+      return { running: false, services };
     } catch {
+      // Even if docker compose ps fails, check URL accessibility
+      try {
+        const urlAccessible = await this.checkUrlAccessible();
+        if (urlAccessible) {
+          return {
+            running: true,
+            services: [
+              { name: "wordpress", status: "running (detected via URL)", ports: [] }
+            ],
+          };
+        }
+      } catch {
+        // URL check also failed
+      }
       return { running: false, services: [] };
+    }
+  }
+
+  private async checkUrlAccessible(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+
+      const response = await fetch(this.url, {
+        method: "HEAD",
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      // Accept any response (even 404s) as the server being up
+      return response.status < 500;
+    } catch {
+      return false;
     }
   }
 
