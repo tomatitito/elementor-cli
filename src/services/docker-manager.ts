@@ -239,6 +239,14 @@ volumes:
     return this.execWpCli(["db", "export", "--skip-ssl", "-"]);
   }
 
+  async hideAdminBar(): Promise<void> {
+    try {
+      await this.execWpCli(["option", "update", "show_admin_bar_front", "0"]);
+    } catch {
+      // Option might not exist yet, that's okay
+    }
+  }
+
   async dbRestore(sql: string): Promise<void> {
     // Write SQL to temp file and import
     const tempFile = `/tmp/elementor-cli-restore-${Date.now()}.sql`;

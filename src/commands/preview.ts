@@ -99,6 +99,14 @@ See also:
       logger.info("Starting staging environment...");
       await docker.start();
 
+      // Hide admin bar for cleaner staging appearance
+      try {
+        await docker.hideAdminBar();
+        logger.dim("Admin bar hidden for staging environment.");
+      } catch {
+        // WordPress might not be ready yet on first run
+      }
+
       logger.success("Staging environment started!");
       logger.info(`\nAccess WordPress at: ${docker.getUrl()}`);
       logger.dim("Note: WordPress may need a minute to initialize on first run.");
