@@ -760,7 +760,7 @@ src/
 - [x] Asset URL rewriting - Rewrite image/asset URLs to localhost when syncing to staging
 
 #### Other Features
-- [ ] Template library for common page structures (`--template` option for `pages create`)
+- [x] Template library for common page structures (`--template` option for `pages create`)
 - [x] Bulk operations (pull/push all pages) - **Implemented via `--all` flag**
 - [ ] SSH database dump for remote sites (`db dump --ssh`)
 - [ ] Watch mode for automatic sync

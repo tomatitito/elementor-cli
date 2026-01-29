@@ -3,6 +3,7 @@ import { getSiteConfig } from "../utils/config-store.js";
 import { logger, formatDate } from "../utils/logger.js";
 import { confirmAction } from "../utils/prompts.js";
 import { WordPressClient } from "../services/wordpress-client.js";
+import { getTemplateWithFreshIds, listTemplates } from "../services/template-library.js";
 
 export const pagesCommand = new Command("pages").description(
   "List and manage pages"
@@ -133,6 +134,7 @@ pagesCommand
   .description("Create a new Elementor page")
   .option("-s, --site <name>", "Site name from config")
   .option("--status <status>", "Page status (draft, publish)", "draft")
+  .option("-t, --template <name>", "Use a template (run 'pages templates' to list)")
   .addHelpText(
     "after",
     `
@@ -140,21 +142,53 @@ Examples:
   $ elementor-cli pages create "My New Page"
   $ elementor-cli pages create "Landing Page" --status publish
   $ elementor-cli pages create "About Us" --site production
+  $ elementor-cli pages create "Home" --template landing-page
+  $ elementor-cli pages create "Features" --template three-column-features
+
+Available templates:
+  blank                   Empty page with no content
+  hero-section            Full-width hero with heading, text, and CTA
+  two-column              Two-column layout with image and text
+  three-column-features   Three-column grid for features/services
+  contact-form            Contact information section
+  landing-page            Full landing page with hero, features, CTA
+
+Run 'elementor-cli pages templates' for full template list.
 
 See also:
-  elementor-cli pages list     List all pages
-  elementor-cli pull           Download a page
+  elementor-cli pages list       List all pages
+  elementor-cli pages templates  List available templates
+  elementor-cli pull             Download a page
 `
   )
   .action(async (title, options) => {
     try {
       const { name: siteName, config } = await getSiteConfig(options.site);
+
+      // Get template if specified
+      let elementorData: string | undefined;
+      let pageSettings: Record<string, unknown> | undefined;
+
+      if (options.template) {
+        const template = getTemplateWithFreshIds(options.template);
+        if (!template) {
+          logger.error(`Template "${options.template}" not found.`);
+          logger.info("Run 'elementor-cli pages templates' to see available templates.");
+          process.exit(1);
+        }
+        elementorData = JSON.stringify(template.elements);
+        pageSettings = template.settings;
+        logger.dim(`Using template: ${template.name}`);
+      }
+
       const spinner = logger.spinner(`Creating page "${title}"...`);
 
       const client = new WordPressClient(config);
       const page = await client.createPage({
         title,
         status: options.status,
+        elementorData,
+        pageSettings,
       });
 
       spinner.succeed(`Created page "${title}" (ID: ${page.id})`);
@@ -163,6 +197,37 @@ See also:
       logger.error(`Failed to create page: ${error}`);
       process.exit(1);
     }
+  });
+
+// pages templates
+pagesCommand
+  .command("templates")
+  .description("List available page templates")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ elementor-cli pages templates
+
+Use templates when creating pages:
+  $ elementor-cli pages create "Home" --template landing-page
+
+See also:
+  elementor-cli pages create   Create a new page
+`
+  )
+  .action(() => {
+    const templates = listTemplates();
+
+    logger.heading("Available Page Templates");
+    console.log("");
+
+    for (const template of templates) {
+      console.log(`  ${template.key.padEnd(24)} ${template.description}`);
+    }
+
+    console.log("");
+    logger.dim("Usage: elementor-cli pages create <title> --template <template-name>");
   });
 
 // pages delete
