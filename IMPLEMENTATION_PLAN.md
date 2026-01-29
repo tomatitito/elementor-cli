@@ -745,7 +745,7 @@ src/
 - [x] `regenerate-css <page-id>` - Invalidate `_elementor_css` meta to force CSS regeneration → [GitHub Issue #1](../../issues/1)
 - [x] `audit <page-id>` - Detect URL mismatches, missing assets, stale CSS → [GitHub Issue #2](../../issues/2)
 - [x] `search-replace <page-id> <search> <replace>` - URL migration with `--dry-run`, `--all-pages` options → [GitHub Issue #3](../../issues/3)
-- [ ] `status <page-id>` - Show CSS metadata, generation timestamps, and URL analysis → [GitHub Issue #4](../../issues/4)
+- [x] `status <page-id>` - Show CSS metadata, generation timestamps, and URL analysis → [GitHub Issue #4](../../issues/4)
 
 #### Studio (Web UI)
 - [ ] `studio` command - Side-by-side web UI for comparing and editing pages (see [Planned: Studio](#planned-studio-web-ui) section above)
