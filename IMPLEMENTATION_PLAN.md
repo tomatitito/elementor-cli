@@ -762,7 +762,7 @@ src/
 #### Other Features
 - [x] Template library for common page structures (`--template` option for `pages create`)
 - [x] Bulk operations (pull/push all pages) - **Implemented via `--all` flag**
-- [ ] SSH database dump for remote sites (`db dump --ssh`)
+- [x] SSH database dump for remote sites (`db dump --ssh`)
 - [ ] Watch mode for automatic sync
 - [ ] Visual diff output (side-by-side)
 - [ ] Plugin for VSCode/other editors
