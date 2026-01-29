@@ -13,6 +13,7 @@ import { auditCommand } from "./commands/audit.js";
 import { searchReplaceCommand } from "./commands/search-replace.js";
 import { statusCommand } from "./commands/status.js";
 import { studioCommand } from "./commands/studio.js";
+import { exportCommand } from "./commands/export.js";
 import pkg from "../package.json";
 
 const program = new Command();
@@ -50,5 +51,6 @@ program.addCommand(auditCommand);
 program.addCommand(searchReplaceCommand);
 program.addCommand(statusCommand);
 program.addCommand(studioCommand);
+program.addCommand(exportCommand);
 
 program.parse();
