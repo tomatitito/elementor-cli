@@ -50,6 +50,9 @@ elementor-cli pages info <page-id> [--site <name>]
 # Create a new page
 elementor-cli pages create <title> [--status draft|publish] [--site <name>]
 
+# Create a page with a WordPress page template
+elementor-cli pages create <title> --page-template elementor_canvas
+
 # Delete a page
 elementor-cli pages delete <page-id> [--site <name>] [--force]
 ```
@@ -92,7 +95,7 @@ Pages are stored in `.elementor-cli/pages/<site>/<page-id>/`:
 ├── page.json           # Full page data
 ├── elements.json       # Just _elementor_data (for editing)
 ├── settings.json       # Page settings
-├── meta.json           # WP post metadata (title, slug, status)
+├── meta.json           # WP post metadata (title, slug, status, template)
 └── .pulled_at          # Timestamp of last pull
 ```
 
@@ -104,12 +107,20 @@ Pages are stored in `.elementor-cli/pages/<site>/<page-id>/`:
   "title": "Home",
   "slug": "home",
   "status": "publish",
+  "template": "elementor_canvas",
   "elementor_data": [...],
   "page_settings": {...},
   "pulled_at": "2024-01-27T12:00:00Z",
   "remote_modified": "2024-01-15T10:30:00Z"
 }
 ```
+
+### WordPress Page Templates
+
+The `template` field stores the WordPress page template. Common values:
+- `default` - Theme default template
+- `elementor_canvas` - Full-width, no header/footer
+- `elementor_header_footer` - Elementor content with theme header/footer
 
 ---
 

@@ -36,6 +36,7 @@ export class ElementorParser {
       title: wpPage.title.raw || wpPage.title.rendered,
       slug: wpPage.slug,
       status: wpPage.status,
+      template: wpPage.template,
       elementor_data: elementorData,
       page_settings: pageSettings,
       pulled_at: new Date().toISOString(),

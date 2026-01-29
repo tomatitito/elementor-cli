@@ -10,6 +10,7 @@ export interface LocalPageData {
     title: string;
     slug: string;
     status: string;
+    template?: string;
   };
 }
 
@@ -57,18 +58,18 @@ export class LocalStore {
       JSON.stringify(pageData.page_settings, null, 2)
     );
 
-    // Save meta.json
+    // Save meta.json (include template if present)
+    const metaData: Record<string, string> = {
+      title: pageData.title,
+      slug: pageData.slug,
+      status: pageData.status,
+    };
+    if (pageData.template) {
+      metaData.template = pageData.template;
+    }
     await Bun.write(
       `${dir}/meta.json`,
-      JSON.stringify(
-        {
-          title: pageData.title,
-          slug: pageData.slug,
-          status: pageData.status,
-        },
-        null,
-        2
-      )
+      JSON.stringify(metaData, null, 2)
     );
 
     // Save pulled_at timestamp
@@ -91,6 +92,7 @@ export class LocalStore {
         title: string;
         slug: string;
         status: string;
+        template?: string;
       }>,
     ]);
 
@@ -122,7 +124,7 @@ export class LocalStore {
     return Array.isArray(settings) ? {} : settings;
   }
 
-  async loadMeta(siteName: string, pageId: number): Promise<{ title: string; slug: string; status: string } | null> {
+  async loadMeta(siteName: string, pageId: number): Promise<{ title: string; slug: string; status: string; template?: string } | null> {
     const dir = this.getPageDir(siteName, pageId);
     const file = Bun.file(`${dir}/meta.json`);
     if (!(await file.exists())) {

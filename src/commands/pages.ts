@@ -108,6 +108,7 @@ See also:
       console.log(`  ID:       ${page.id}`);
       console.log(`  Slug:     ${page.slug}`);
       console.log(`  Status:   ${page.status}`);
+      console.log(`  Template: ${page.template || "default"}`);
       console.log(`  Modified: ${formatDate(page.modified)}`);
       console.log(`  URL:      ${page.link}`);
 
@@ -135,6 +136,7 @@ pagesCommand
   .option("-s, --site <name>", "Site name from config")
   .option("--status <status>", "Page status (draft, publish)", "draft")
   .option("-t, --template <name>", "Use a template (run 'pages templates' to list)")
+  .option("--page-template <template>", "WordPress page template (e.g., elementor_canvas, elementor_header_footer)")
   .addHelpText(
     "after",
     `
@@ -144,8 +146,14 @@ Examples:
   $ elementor-cli pages create "About Us" --site production
   $ elementor-cli pages create "Home" --template landing-page
   $ elementor-cli pages create "Features" --template three-column-features
+  $ elementor-cli pages create "Canvas Page" --page-template elementor_canvas
 
-Available templates:
+WordPress page templates:
+  default                 Theme default template
+  elementor_canvas        Full-width, no header/footer
+  elementor_header_footer Elementor content with theme header/footer
+
+Available content templates:
   blank                   Empty page with no content
   hero-section            Full-width hero with heading, text, and CTA
   two-column              Two-column layout with image and text
@@ -187,6 +195,7 @@ See also:
       const page = await client.createPage({
         title,
         status: options.status,
+        template: options.pageTemplate,
         elementorData,
         pageSettings,
       });

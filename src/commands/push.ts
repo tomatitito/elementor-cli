@@ -132,6 +132,7 @@ See also:
             title: localData.meta.title,
             slug: localData.meta.slug,
             status: localData.meta.status,
+            template: localData.meta.template,
             elementorData: parser.serializeElements(localData.elements),
             pageSettings: localData.settings,
           });
@@ -144,6 +145,7 @@ See also:
           localData.page.title = localData.meta.title;
           localData.page.slug = localData.meta.slug;
           localData.page.status = localData.meta.status;
+          localData.page.template = localData.meta.template;
           await store.savePage(siteName, localData.page);
 
           spinner.succeed(`Pushed page ${pageId}: "${localData.meta.title}"`);

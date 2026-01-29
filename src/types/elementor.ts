@@ -18,6 +18,7 @@ export interface PageData {
   title: string;
   slug: string;
   status: "publish" | "draft" | "private" | "pending" | "trash";
+  template?: string; // WordPress page template (e.g., "elementor_canvas", "elementor_header_footer")
   elementor_data: ElementorElement[];
   page_settings: PageSettings;
   pulled_at?: string;
@@ -32,5 +33,6 @@ export interface LocalPageFiles {
     title: string;
     slug: string;
     status: string;
+    template?: string;
   };
 }

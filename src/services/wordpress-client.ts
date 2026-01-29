@@ -47,7 +47,7 @@ export class WordPressClient {
       per_page: String(options.perPage || 100),
       page: String(options.page || 1),
       context: "edit",
-      _fields: "id,title,slug,status,modified,meta",
+      _fields: "id,title,slug,status,modified,meta,template",
     });
 
     if (options.status && options.status !== "all") {
@@ -69,20 +69,27 @@ export class WordPressClient {
   async createPage(data: {
     title: string;
     status?: string;
+    template?: string;
     elementorData?: string;
     pageSettings?: Record<string, unknown>;
   }): Promise<WPPage> {
+    const body: Record<string, unknown> = {
+      title: data.title,
+      status: data.status || "draft",
+      meta: {
+        _elementor_edit_mode: "builder",
+        _elementor_data: data.elementorData || "[]",
+        _elementor_page_settings: data.pageSettings || {},
+      },
+    };
+
+    if (data.template) {
+      body.template = data.template;
+    }
+
     return this.request<WPPage>("/wp/v2/pages", {
       method: "POST",
-      body: JSON.stringify({
-        title: data.title,
-        status: data.status || "draft",
-        meta: {
-          _elementor_edit_mode: "builder",
-          _elementor_data: data.elementorData || "[]",
-          _elementor_page_settings: data.pageSettings || {},
-        },
-      }),
+      body: JSON.stringify(body),
     });
   }
 
@@ -92,6 +99,7 @@ export class WordPressClient {
       title?: string;
       status?: string;
       slug?: string;
+      template?: string;
       elementorData?: string;
       pageSettings?: Record<string, unknown>;
     }
@@ -101,6 +109,7 @@ export class WordPressClient {
     if (data.title) body.title = data.title;
     if (data.status) body.status = data.status;
     if (data.slug) body.slug = data.slug;
+    if (data.template) body.template = data.template;
 
     if (data.elementorData || data.pageSettings) {
       body.meta = {};
