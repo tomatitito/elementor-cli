@@ -712,14 +712,15 @@ elementor-cli studio [--port 3000]
 
 ### Technical Approach
 
-- **Server:** Bun.serve or Hono (lightweight, built-in to Bun)
-- **UI:** Static HTML/CSS/JS (minimal dependencies, no build step)
+- **Server:** Bun.serve (lightweight, built-in to Bun)
+- **UI:** Static HTML/CSS/JS embedded directly into bundle using Bun's text import feature
 - **API:** Local REST endpoints that wrap existing CLI services
   - `GET /api/pages` - List pages
   - `POST /api/sync/:id` - Sync page to staging
   - `POST /api/push/:id` - Push to production
   - `POST /api/regenerate-css/:id` - Invalidate CSS cache
 - **Config:** Reads from existing `.elementor-cli.yaml`
+- **Static Assets:** Embedded using `import ... with { type: "text" }` to ensure assets are bundled with the compiled binary
 
 ### Files
 

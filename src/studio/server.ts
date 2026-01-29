@@ -5,6 +5,14 @@ import { LocalStore } from "../services/local-store.js";
 import { ElementorParser } from "../services/elementor-parser.js";
 import { createApiHandler } from "./api.js";
 
+// Embed static assets directly for bundled builds
+// @ts-ignore - Bun text imports
+import indexHtml from "./public/index.html" with { type: "text" };
+// @ts-ignore - Bun text imports
+import styleCss from "./public/style.css" with { type: "text" };
+// @ts-ignore - Bun text imports
+import appJs from "./public/app.js" with { type: "text" };
+
 export interface StudioOptions {
   port: number;
   site?: string;
@@ -48,26 +56,21 @@ export async function createStudioServer(
         return apiHandler(req, url);
       }
 
-      // Static files
-      const publicDir = import.meta.dir + "/public";
-
+      // Static files - serve embedded assets
       if (pathname === "/" || pathname === "/index.html") {
-        const file = Bun.file(`${publicDir}/index.html`);
-        return new Response(file, {
+        return new Response(indexHtml as unknown as string, {
           headers: { "Content-Type": "text/html" },
         });
       }
 
       if (pathname === "/style.css") {
-        const file = Bun.file(`${publicDir}/style.css`);
-        return new Response(file, {
+        return new Response(styleCss as unknown as string, {
           headers: { "Content-Type": "text/css" },
         });
       }
 
       if (pathname === "/app.js") {
-        const file = Bun.file(`${publicDir}/app.js`);
-        return new Response(file, {
+        return new Response(appJs as unknown as string, {
           headers: { "Content-Type": "application/javascript" },
         });
       }
