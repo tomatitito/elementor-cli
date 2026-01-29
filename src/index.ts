@@ -12,6 +12,7 @@ import { regenerateCssCommand } from "./commands/regenerate-css.js";
 import { auditCommand } from "./commands/audit.js";
 import { searchReplaceCommand } from "./commands/search-replace.js";
 import { statusCommand } from "./commands/status.js";
+import { studioCommand } from "./commands/studio.js";
 import pkg from "../package.json";
 
 const program = new Command();
@@ -48,5 +49,6 @@ program.addCommand(regenerateCssCommand);
 program.addCommand(auditCommand);
 program.addCommand(searchReplaceCommand);
 program.addCommand(statusCommand);
+program.addCommand(studioCommand);
 
 program.parse();

@@ -748,7 +748,7 @@ src/
 - [x] `status <page-id>` - Show CSS metadata, generation timestamps, and URL analysis → [GitHub Issue #4](../../issues/4)
 
 #### Studio (Web UI)
-- [ ] `studio` command - Side-by-side web UI for comparing and editing pages (see [Planned: Studio](#planned-studio-web-ui) section above)
+- [x] `studio` command - Side-by-side web UI for comparing and editing pages (see [Planned: Studio](#planned-studio-web-ui) section above)
 
 #### Export & Import
 - [ ] `export <page-id>` - Export page as Elementor-compatible JSON template
