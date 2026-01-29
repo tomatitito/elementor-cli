@@ -150,7 +150,7 @@ See also:
           metadata: {
             created: new Date().toISOString(),
             site: siteName,
-            elementor_cli_version: "0.2.1",
+            elementor_cli_version: "0.2.2",
           },
         };
         exportData = JSON.stringify(template, null, 2);

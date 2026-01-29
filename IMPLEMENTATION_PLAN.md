@@ -6,7 +6,7 @@ See [specs/](./specs/readme.md) for the full specification of commands, configur
 
 ## Implementation Status
 
-**All phases complete.** Current version: **0.2.1**
+**All phases complete.** Current version: **0.2.2**
 
 | Phase | Status |
 |-------|--------|
@@ -30,21 +30,30 @@ Build a TypeScript CLI tool (using Bun) for managing Elementor pages programmati
 │                         elementor-cli                            │
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands Layer (Commander.js)                                   │
-│  ├── config    - Manage site connections                        │
-│  ├── pages     - List/create/delete pages                       │
-│  ├── pull      - Download pages from remote                     │
-│  ├── push      - Upload pages to remote                         │
-│  ├── preview   - Local staging environment                      │
-│  ├── db        - Database dump/restore                          │
-│  ├── revisions - View/restore backups                           │
-│  └── diff      - Compare local vs remote                        │
+│  ├── config         - Manage site connections                   │
+│  ├── pages          - List/create/delete pages                  │
+│  ├── pull           - Download pages from remote                │
+│  ├── push           - Upload pages to remote                    │
+│  ├── preview        - Local staging environment                 │
+│  ├── db             - Database dump/restore                     │
+│  ├── revisions      - View/restore backups                      │
+│  ├── diff           - Compare local vs remote                   │
+│  ├── regenerate-css - Invalidate CSS cache                      │
+│  ├── audit          - Check page health                         │
+│  ├── search-replace - URL migration                             │
+│  ├── status         - CSS metadata analysis                     │
+│  ├── studio         - Web UI for editing                        │
+│  ├── export         - Export as JSON template                   │
+│  └── export-html    - Export as static HTML                     │
 ├─────────────────────────────────────────────────────────────────┤
 │  Core Services                                                   │
 │  ├── WordPressClient   - REST API communication                 │
 │  ├── ElementorParser   - JSON data transformation               │
 │  ├── LocalStore        - File-based page storage                │
 │  ├── DockerManager     - Staging environment control            │
-│  └── RevisionManager   - Backup/restore operations              │
+│  ├── RevisionManager   - Backup/restore operations              │
+│  ├── TemplateLibrary   - Page template management               │
+│  └── Studio (server)   - Web UI backend                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  Data Layer                                                      │
 │  ├── .elementor-cli.yaml           - Project config (YAML)      │
@@ -309,7 +318,7 @@ See [specs/structure.md](./specs/structure.md) for detailed project layout.
 ```json
 {
   "name": "elementor-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "bin": {
     "elementor-cli": "./dist/elementor-cli"
@@ -665,9 +674,9 @@ The workflow will automatically build binaries for all platforms and create a pu
 
 ---
 
-## Planned: Studio (Web UI)
+## Studio (Web UI) ✅
 
-Local web interface for side-by-side page editing and comparison.
+Local web interface for side-by-side page editing and comparison. **Implemented in v0.2.0.**
 
 ### Concept
 

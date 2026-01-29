@@ -27,17 +27,32 @@ elementor-cli/
 │   │   ├── pages.ts                # pages list/info/create/delete
 │   │   ├── pull.ts                 # pull command
 │   │   ├── push.ts                 # push command
-│   │   ├── preview.ts              # preview subcommands
+│   │   ├── preview.ts              # preview subcommands (incl. watch)
 │   │   ├── db.ts                   # db dump/restore/list
 │   │   ├── revisions.ts            # revisions subcommands
-│   │   └── diff.ts                 # diff command
+│   │   ├── diff.ts                 # diff command
+│   │   ├── regenerate-css.ts       # CSS cache invalidation
+│   │   ├── audit.ts                # URL/asset verification
+│   │   ├── search-replace.ts       # URL migration tool
+│   │   ├── status.ts               # CSS metadata analysis
+│   │   ├── studio.ts               # Web UI server
+│   │   ├── export.ts               # JSON template export
+│   │   └── export-html.ts          # Static HTML export
 │   ├── services/
 │   │   ├── wordpress-client.ts     # REST API client
 │   │   ├── wordpress-client.test.ts # Tests (colocated with source)
 │   │   ├── elementor-parser.ts     # JSON parsing/transformation
 │   │   ├── local-store.ts          # Local file operations
 │   │   ├── docker-manager.ts       # Docker compose operations
-│   │   └── revision-manager.ts     # Revision operations
+│   │   ├── revision-manager.ts     # Revision operations
+│   │   ├── template-library.ts     # Page template management
+│   │   └── studio/                 # Studio web UI
+│   │       ├── server.ts           # HTTP server setup
+│   │       ├── api.ts              # API route handlers
+│   │       └── public/             # Static web assets
+│   │           ├── index.html
+│   │           ├── style.css
+│   │           └── app.js
 │   ├── types/
 │   │   ├── index.ts                # Re-exports
 │   │   ├── elementor.ts            # Elementor element types
@@ -121,6 +136,8 @@ Business logic and external integrations:
 | `local-store.ts` | Read/write page files locally |
 | `docker-manager.ts` | Docker compose commands |
 | `revision-manager.ts` | Revision fetching and restore |
+| `template-library.ts` | Page template management |
+| `studio/` | Web UI server and API handlers |
 
 ### Types
 
@@ -243,7 +260,7 @@ bun test
 ```json
 {
   "name": "elementor-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "bin": {
     "elementor-cli": "./dist/elementor-cli"

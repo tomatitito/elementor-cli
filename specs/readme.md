@@ -73,3 +73,10 @@ elementor-cli push 42
 | `db` | Database dump and restore |
 | `revisions` | View and restore page history |
 | `diff` | Compare local vs remote changes |
+| `regenerate-css` | Invalidate Elementor CSS cache |
+| `audit` | Detect URL mismatches, missing assets, CSS issues |
+| `search-replace` | Search and replace text in Elementor data |
+| `status` | Show CSS metadata and URL analysis |
+| `studio` | Web UI for side-by-side page editing |
+| `export` | Export page as Elementor JSON template |
+| `export-html` | Export page as static HTML |
