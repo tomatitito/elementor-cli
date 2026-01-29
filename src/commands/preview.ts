@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { spawn } from "node:child_process";
+import { watch as fsWatch } from "node:fs";
 import { readConfig, writeConfig } from "../utils/config-store.js";
 import { logger } from "../utils/logger.js";
 import { DockerManager } from "../services/docker-manager.js";
@@ -374,6 +375,171 @@ See also:
       spawn(openCmd, [url], { detached: true, stdio: "ignore" }).unref();
     } catch (error) {
       logger.error(`Failed to open browser: ${error}`);
+      process.exit(1);
+    }
+  });
+
+// preview watch
+previewCommand
+  .command("watch")
+  .description("Watch for local changes and auto-sync to staging")
+  .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("-s, --site <name>", "Site name for local pages")
+  .option("--no-rewrite-urls", "Disable URL rewriting from production to staging")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ elementor-cli preview watch           Watch and sync all changes
+  $ elementor-cli preview watch --site prod  Watch specific site pages
+
+This command:
+  1. Watches .elementor-cli/pages/<site>/ for file changes
+  2. Automatically syncs modified pages to staging
+  3. Rewrites URLs from production to staging (unless --no-rewrite-urls)
+  4. Press Ctrl+C to stop watching
+
+See also:
+  elementor-cli preview sync     Manual sync
+  elementor-cli preview start    Start staging environment
+`
+  )
+  .action(async (options) => {
+    try {
+      const docker = await DockerManager.create(options.composeFile);
+      const store = await LocalStore.create();
+      const parser = new ElementorParser();
+      const config = await readConfig();
+
+      const siteName = options.site || config.defaultSite;
+      if (!siteName) {
+        logger.error("No site specified and no default site configured.");
+        process.exit(1);
+      }
+
+      // Check if staging is running
+      const status = await docker.getStatus();
+      if (!status.running) {
+        logger.error("Staging environment is not running.");
+        logger.info("Run 'elementor-cli preview start' first.");
+        process.exit(1);
+      }
+
+      // Get source site URL for URL rewriting
+      const siteConfig = config.sites[siteName];
+      const sourceUrl = siteConfig?.url;
+      const targetUrl = config.staging.url;
+      const shouldRewriteUrls = options.rewriteUrls !== false && sourceUrl && targetUrl;
+
+      const pagesDir = `${process.cwd()}/${config.pagesDir}/${siteName}`;
+
+      logger.heading("Watch Mode");
+      logger.info(`Watching: ${pagesDir}`);
+      logger.info(`Staging: ${docker.getUrl()}`);
+      if (shouldRewriteUrls) {
+        logger.dim(`URL rewriting: ${sourceUrl} → ${targetUrl}`);
+      }
+      console.log("");
+      logger.dim("Press Ctrl+C to stop watching.\n");
+
+      // Track pending syncs to debounce rapid changes
+      const pendingSyncs = new Map<string, NodeJS.Timeout>();
+
+      // Watch for changes
+      const watcher = fsWatch(
+        pagesDir,
+        { recursive: true },
+        async (eventType, filename) => {
+          if (!filename) return;
+
+          // Parse the page ID from the path (e.g., "42/elements.json" -> 42)
+          const pageIdMatch = filename.match(/^(\d+)\//);
+          if (!pageIdMatch) return;
+
+          const pageId = parseInt(pageIdMatch[1], 10);
+          if (isNaN(pageId)) return;
+
+          // Debounce: wait 500ms before syncing to batch rapid changes
+          if (pendingSyncs.has(String(pageId))) {
+            clearTimeout(pendingSyncs.get(String(pageId)));
+          }
+
+          pendingSyncs.set(
+            String(pageId),
+            setTimeout(async () => {
+              pendingSyncs.delete(String(pageId));
+              await syncPage(pageId);
+            }, 500)
+          );
+        }
+      );
+
+      async function syncPage(pageId: number) {
+        const localData = await store.loadPage(siteName, pageId);
+        if (!localData) {
+          logger.warn(`Page ${pageId} not found locally. Skipped.`);
+          return;
+        }
+
+        const timestamp = new Date().toLocaleTimeString();
+        process.stdout.write(`[${timestamp}] Syncing page ${pageId}... `);
+
+        try {
+          // Try to update existing page, or create new one
+          try {
+            await docker.updatePost(pageId, {
+              title: localData.meta.title,
+              slug: localData.meta.slug,
+              status: localData.meta.status,
+            });
+          } catch {
+            // Page doesn't exist in staging, create it
+            await docker.createPage(localData.meta.title, localData.meta.status);
+          }
+
+          // Prepare elements and settings (with optional URL rewriting)
+          let elements = localData.elements;
+          let settings = localData.settings;
+
+          if (shouldRewriteUrls) {
+            elements = parser.rewriteUrls(elements, sourceUrl, targetUrl);
+            settings = parser.rewriteSettingsUrls(settings, sourceUrl, targetUrl);
+          }
+
+          // Update Elementor meta
+          await docker.updatePostMeta(pageId, "_elementor_edit_mode", "builder");
+          await docker.updatePostMeta(
+            pageId,
+            "_elementor_data",
+            parser.serializeElements(elements)
+          );
+          await docker.updatePostMeta(
+            pageId,
+            "_elementor_page_settings",
+            parser.serializeSettings(settings)
+          );
+
+          // Flush CSS cache
+          await docker.flushElementorCss();
+
+          console.log(`✓ "${localData.meta.title}"`);
+        } catch (error) {
+          console.log(`✗ Failed: ${error}`);
+        }
+      }
+
+      // Handle Ctrl+C gracefully
+      process.on("SIGINT", () => {
+        console.log("\n");
+        logger.info("Watch mode stopped.");
+        watcher.close();
+        process.exit(0);
+      });
+
+      // Keep the process running
+      await new Promise(() => {});
+    } catch (error) {
+      logger.error(`Watch failed: ${error}`);
       process.exit(1);
     }
   });

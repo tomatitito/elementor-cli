@@ -763,7 +763,7 @@ src/
 - [x] Template library for common page structures (`--template` option for `pages create`)
 - [x] Bulk operations (pull/push all pages) - **Implemented via `--all` flag**
 - [x] SSH database dump for remote sites (`db dump --ssh`)
-- [ ] Watch mode for automatic sync
+- [x] Watch mode for automatic sync
 - [ ] Visual diff output (side-by-side)
 - [ ] Plugin for VSCode/other editors
 - [ ] Support for Elementor Pro widgets
