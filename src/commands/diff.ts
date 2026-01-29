@@ -11,7 +11,7 @@ export const diffCommand = new Command("diff")
   .description("Compare local changes with remote")
   .argument("<page-id>", "Page ID to compare")
   .option("-s, --site <name>", "Site name from config")
-  .option("--format <format>", "Output format (text, json, summary)", "text")
+  .option("--format <format>", "Output format (text, json, summary, side-by-side)", "text")
   .addHelpText(
     "after",
     `
@@ -20,11 +20,13 @@ Examples:
   $ elementor-cli diff 42 --site production
   $ elementor-cli diff 42 --format json
   $ elementor-cli diff 42 --format summary
+  $ elementor-cli diff 42 --format side-by-side
 
 Output formats:
-  text     Human-readable diff (default)
-  json     JSON diff structure
-  summary  Brief change counts
+  text         Human-readable diff (default)
+  json         JSON diff structure
+  summary      Brief change counts
+  side-by-side Visual side-by-side comparison of changed values
 
 See also:
   elementor-cli pull           Download pages
@@ -103,6 +105,99 @@ See also:
         console.log(`Elements: +${diff.added.length} added, -${diff.removed.length} removed, ~${diff.modified.length} modified`);
         console.log(`Settings: ${settingsDiff.length} changed`);
         console.log(`Meta: ${metaDiff.length} changed`);
+        return;
+      }
+
+      if (options.format === "side-by-side") {
+        logger.heading(`Side-by-Side Diff: ${localData.meta.title} (ID: ${id})`);
+        console.log("");
+
+        if (!hasChanges) {
+          logger.success("No changes between local and remote.");
+          return;
+        }
+
+        const termWidth = process.stdout.columns || 120;
+        const colWidth = Math.floor((termWidth - 5) / 2);
+
+        // Print header
+        console.log(
+          chalk.bold(chalk.red("Remote".padEnd(colWidth))) +
+            "  │  " +
+            chalk.bold(chalk.green("Local".padEnd(colWidth)))
+        );
+        console.log("─".repeat(colWidth) + "──┼──" + "─".repeat(colWidth));
+
+        // Show meta changes
+        if (metaDiff.length > 0) {
+          console.log(chalk.bold.cyan("\n[Meta]"));
+          for (const change of metaDiff) {
+            printSideBySide(
+              `${change.key}: ${formatValueCompact(change.remote)}`,
+              `${change.key}: ${formatValueCompact(change.local)}`,
+              colWidth
+            );
+          }
+        }
+
+        // Show settings changes
+        if (settingsDiff.length > 0) {
+          console.log(chalk.bold.cyan("\n[Page Settings]"));
+          for (const change of settingsDiff) {
+            printSideBySide(
+              `${change.key}: ${formatValueCompact(change.remote)}`,
+              `${change.key}: ${formatValueCompact(change.local)}`,
+              colWidth
+            );
+          }
+        }
+
+        // Show element changes
+        if (diff.added.length > 0 || diff.removed.length > 0 || diff.modified.length > 0) {
+          console.log(chalk.bold.cyan("\n[Elements]"));
+
+          for (const id of diff.added) {
+            const el = parser.findElement(localData.elements, id);
+            printSideBySide(
+              chalk.dim("(not present)"),
+              chalk.green(`+ ${formatElement(el)}`),
+              colWidth
+            );
+          }
+
+          for (const id of diff.removed) {
+            const el = parser.findElement(remoteData.elementor_data, id);
+            printSideBySide(
+              chalk.red(`- ${formatElement(el)}`),
+              chalk.dim("(removed)"),
+              colWidth
+            );
+          }
+
+          for (const elId of diff.modified) {
+            const localEl = parser.findElement(localData.elements, elId);
+            const remoteEl = parser.findElement(remoteData.elementor_data, elId);
+
+            console.log(chalk.yellow(`\n  ~ ${formatElement(localEl)}`));
+
+            // Compare settings of this element
+            if (localEl && remoteEl) {
+              const elSettingsDiff = compareSettings(
+                localEl.settings as Record<string, unknown>,
+                remoteEl.settings as Record<string, unknown>
+              );
+              for (const change of elSettingsDiff) {
+                printSideBySide(
+                  `  ${change.key}: ${formatValueCompact(change.remote)}`,
+                  `  ${change.key}: ${formatValueCompact(change.local)}`,
+                  colWidth
+                );
+              }
+            }
+          }
+        }
+
+        console.log("");
         return;
       }
 
@@ -219,4 +314,48 @@ function formatElement(el: ElementorElement | null): string {
   }
 
   return `${el.elType} (${el.id})`;
+}
+
+function formatValueCompact(value: unknown): string {
+  if (value === undefined) return "(not set)";
+  if (value === null) return "null";
+  if (typeof value === "string") {
+    if (value.length > 40) {
+      return `"${value.slice(0, 37)}..."`;
+    }
+    return `"${value}"`;
+  }
+  if (typeof value === "object") {
+    const str = JSON.stringify(value);
+    if (str.length > 40) {
+      return str.slice(0, 37) + "...";
+    }
+    return str;
+  }
+  return String(value);
+}
+
+function printSideBySide(left: string, right: string, colWidth: number): void {
+  // Strip ANSI codes for length calculation
+  const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
+
+  const leftText = stripAnsi(left);
+  const rightText = stripAnsi(right);
+
+  // Truncate if too long
+  const leftDisplay =
+    leftText.length > colWidth
+      ? left.slice(0, colWidth - 3) + "..."
+      : left + " ".repeat(Math.max(0, colWidth - leftText.length));
+
+  const rightDisplay =
+    rightText.length > colWidth ? right.slice(0, colWidth - 3) + "..." : right;
+
+  // Pad left side to maintain alignment
+  const leftPadded =
+    leftText.length <= colWidth
+      ? left + " ".repeat(Math.max(0, colWidth - leftText.length))
+      : leftDisplay;
+
+  console.log(chalk.red(leftPadded) + "  │  " + chalk.green(rightDisplay));
 }

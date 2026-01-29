@@ -764,7 +764,7 @@ src/
 - [x] Bulk operations (pull/push all pages) - **Implemented via `--all` flag**
 - [x] SSH database dump for remote sites (`db dump --ssh`)
 - [x] Watch mode for automatic sync
-- [ ] Visual diff output (side-by-side)
+- [x] Visual diff output (side-by-side)
 - [ ] Plugin for VSCode/other editors
 - [ ] Support for Elementor Pro widgets
 - [ ] Export to static HTML
