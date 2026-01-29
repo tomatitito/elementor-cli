@@ -146,4 +146,17 @@ export class WordPressClient {
   isElementorPage(page: WPPage): boolean {
     return page.meta?._elementor_edit_mode === "builder";
   }
+
+  async invalidateCss(pageId: number): Promise<WPPage> {
+    // Invalidate Elementor CSS cache by setting _elementor_css meta to empty
+    // This forces Elementor to regenerate CSS on next page load
+    return this.request<WPPage>(`/wp/v2/pages/${pageId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        meta: {
+          _elementor_css: "",
+        },
+      }),
+    });
+  }
 }

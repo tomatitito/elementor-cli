@@ -8,6 +8,7 @@ import { diffCommand } from "./commands/diff.js";
 import { previewCommand } from "./commands/preview.js";
 import { dbCommand } from "./commands/db.js";
 import { revisionsCommand } from "./commands/revisions.js";
+import { regenerateCssCommand } from "./commands/regenerate-css.js";
 import pkg from "../package.json";
 
 const program = new Command();
@@ -40,5 +41,6 @@ program.addCommand(diffCommand);
 program.addCommand(previewCommand);
 program.addCommand(dbCommand);
 program.addCommand(revisionsCommand);
+program.addCommand(regenerateCssCommand);
 
 program.parse();
