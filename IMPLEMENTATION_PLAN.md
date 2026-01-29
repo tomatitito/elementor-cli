@@ -767,4 +767,4 @@ src/
 - [x] Visual diff output (side-by-side)
 - [ ] Plugin for VSCode/other editors
 - [ ] Support for Elementor Pro widgets
-- [ ] Export to static HTML
+- [x] Export to static HTML
