@@ -6,6 +6,7 @@ import { logger } from "../utils/logger.js";
 import { DockerManager } from "../services/docker-manager.js";
 import { LocalStore } from "../services/local-store.js";
 import { ElementorParser } from "../services/elementor-parser.js";
+import type { ElementorElement } from "../types/elementor.js";
 
 export const previewCommand = new Command("preview").description(
   "Local Docker staging environment for previewing changes"
@@ -540,6 +541,90 @@ See also:
       await new Promise(() => {});
     } catch (error) {
       logger.error(`Watch failed: ${error}`);
+      process.exit(1);
+    }
+  });
+
+// preview element
+previewCommand
+  .command("element <page-id> <element-id>")
+  .description("Fetch a specific element by ID from local page files")
+  .option("-s, --site <name>", "Site name for local pages")
+  .option("--path", "Show the element's location in the tree")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ elementor-cli preview element 42 abc123          Fetch element by ID
+  $ elementor-cli preview element 42 abc123 --path   Show element path in tree
+
+Output is the element JSON including its settings and nested elements.
+
+See also:
+  elementor-cli pull             Download pages from remote
+  elementor-cli preview sync     Sync pages to staging
+`
+  )
+  .action(async (pageId, elementId, options) => {
+    try {
+      const store = await LocalStore.create();
+      const config = await readConfig();
+      const siteName = options.site || config.defaultSite;
+
+      if (!siteName) {
+        logger.error("No site specified and no default site configured.");
+        process.exit(1);
+      }
+
+      const localData = await store.loadPage(siteName, parseInt(pageId, 10));
+      if (!localData) {
+        logger.error(`Page ${pageId} not found locally.`);
+        logger.info(`Run 'elementor-cli pull ${pageId}' to download it first.`);
+        process.exit(1);
+      }
+
+      // Recursively search for element by ID
+      interface ElementPath {
+        element: ElementorElement;
+        path: string[];
+      }
+
+      function findElement(
+        elements: ElementorElement[],
+        id: string,
+        path: string[] = []
+      ): ElementPath | null {
+        for (let i = 0; i < elements.length; i++) {
+          const el = elements[i];
+          const elPath = [...path, `${el.elType}[${i}]${el.widgetType ? `(${el.widgetType})` : ""}`];
+
+          if (el.id === id) {
+            return { element: el, path: elPath };
+          }
+
+          if (el.elements && el.elements.length > 0) {
+            const found = findElement(el.elements, id, elPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      const result = findElement(localData.elements, elementId);
+
+      if (!result) {
+        logger.error(`Element with ID "${elementId}" not found in page ${pageId}.`);
+        process.exit(1);
+      }
+
+      if (options.path) {
+        logger.dim(`Path: ${result.path.join(" > ")}`);
+        console.log("");
+      }
+
+      console.log(JSON.stringify(result.element, null, 2));
+    } catch (error) {
+      logger.error(`Failed to fetch element: ${error}`);
       process.exit(1);
     }
   });

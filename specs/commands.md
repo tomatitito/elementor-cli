@@ -634,6 +634,43 @@ elementor-cli preview watch --no-rewrite-urls
 
 ---
 
+## `elementor-cli preview element`
+
+Fetch a specific element by ID from local page files.
+
+```bash
+# Fetch element by ID
+elementor-cli preview element <page-id> <element-id>
+
+# Show element path in the tree
+elementor-cli preview element <page-id> <element-id> --path
+```
+
+### Example
+
+```bash
+$ elementor-cli preview element 42 abc123 --path
+Path: container[0] > widget[2](heading)
+
+{
+  "id": "abc123",
+  "elType": "widget",
+  "widgetType": "heading",
+  "settings": {
+    "title": "Welcome",
+    "size": "large"
+  }
+}
+```
+
+### Use cases
+
+- Inspect a specific element's settings without navigating the full JSON
+- Debug element configurations during local preview
+- Extract element data for reuse or comparison
+
+---
+
 ## `elementor-cli update`
 
 Check for updates and install the latest version.
