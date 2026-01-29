@@ -1,0 +1,23 @@
+{
+  "run_id": "20260129-180549-b32b0476",
+  "status": "completed",
+  "started_at": "2026-01-29T18:05:49.951096702Z",
+  "completed_at": "2026-01-29T18:19:32.843813664Z",
+  "project_path": "/home/sprite/elementor-cli",
+  "prompt_preview": "0a. Familiarize yourself with the `specs`. \n0b. Familiarize yourself with the `IMPLEMENTATION_PLAN`....",
+  "completion_promise": "COMPLETE",
+  "exit_reason": "promise_fulfilled",
+  "iterations": [
+    {
+      "iteration": 1,
+      "session_id": "9ea958b6-2257-45c2-b6bd-5d1b6c6c0021",
+      "started_at": "2026-01-29T18:05:49.951328172Z",
+      "ended_at": "2026-01-29T18:19:32.843609484Z",
+      "end_reason": "promise_found",
+      "tokens": {
+        "input": 10960,
+        "output": 38678
+      }
+    }
+  ]
+}
