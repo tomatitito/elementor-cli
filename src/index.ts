@@ -15,6 +15,7 @@ import { statusCommand } from "./commands/status.js";
 import { studioCommand } from "./commands/studio.js";
 import { exportCommand } from "./commands/export.js";
 import { exportHtmlCommand } from "./commands/export-html.js";
+import { updateCommand } from "./commands/update.js";
 import pkg from "../package.json";
 
 const program = new Command();
@@ -54,5 +55,6 @@ program.addCommand(statusCommand);
 program.addCommand(studioCommand);
 program.addCommand(exportCommand);
 program.addCommand(exportHtmlCommand);
+program.addCommand(updateCommand);
 
 program.parse();

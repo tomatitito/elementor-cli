@@ -631,3 +631,39 @@ elementor-cli preview watch --no-rewrite-urls
 2. Automatically syncs modified pages to staging
 3. Rewrites URLs from production to staging (unless `--no-rewrite-urls`)
 4. Press Ctrl+C to stop watching
+
+---
+
+## `elementor-cli update`
+
+Check for updates and install the latest version.
+
+```bash
+# Install latest version
+elementor-cli update
+
+# Check for updates without installing
+elementor-cli update --check
+
+# Install a specific version
+elementor-cli update --version v0.3.0
+```
+
+### How it works
+
+1. Fetches latest release info from GitHub Releases API
+2. Compares current version with latest
+3. Downloads the appropriate binary for your platform
+4. Extracts and installs to `~/.local/bin/elementor-cli`
+5. Shows release notes after successful update
+
+### Supported platforms
+
+| OS | Architecture | Binary name |
+|----|--------------|-------------|
+| macOS | Intel | elementor-cli-darwin-x64 |
+| macOS | Apple Silicon | elementor-cli-darwin-arm64 |
+| Linux | x86_64 | elementor-cli-linux-x64 |
+| Linux | ARM64 | elementor-cli-linux-arm64 |
+
+**Note:** Make sure `~/.local/bin` is in your PATH.
