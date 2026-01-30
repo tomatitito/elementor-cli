@@ -1,0 +1,23 @@
+{
+  "run_id": "20260130-113904-cacf721c",
+  "status": "completed",
+  "started_at": "2026-01-30T11:39:05.386909154Z",
+  "completed_at": "2026-01-30T11:40:34.834960399Z",
+  "project_path": "/home/sprite/elementor-cli",
+  "prompt_preview": "0. Familiarize yourself with the `E2E_TEST_FAILURE_ANALYSIS.md`. \n1. Fix the failing tests using the...",
+  "completion_promise": "COMPLETE",
+  "exit_reason": "promise_fulfilled",
+  "iterations": [
+    {
+      "iteration": 1,
+      "session_id": "09ad7a2a-a929-461d-93ba-71da78c62e75",
+      "started_at": "2026-01-30T11:39:05.387709884Z",
+      "ended_at": "2026-01-30T11:40:34.834769709Z",
+      "end_reason": "promise_found",
+      "tokens": {
+        "input": 329,
+        "output": 1711
+      }
+    }
+  ]
+}

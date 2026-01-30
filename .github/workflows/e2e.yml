@@ -33,17 +33,9 @@ jobs:
           echo "Waiting for WordPress..."
           timeout 120 bash -c 'until curl -s http://localhost:8888 > /dev/null 2>&1; do sleep 2; done'
 
-          # Stream CLI container logs in background to help debug seed script
-          echo "Starting CLI log stream..."
-          docker compose logs -f cli &
-          LOG_PID=$!
-
           # Wait for seed script to complete
           echo "Waiting for seed script..."
           timeout 180 bash -c 'until docker exec elementor-cli-test-wp test -f /var/www/html/wp-content/test-pages.json 2>/dev/null; do sleep 5; done'
-
-          # Stop log streaming
-          kill $LOG_PID 2>/dev/null || true
 
           echo "Test environment ready!"
 
@@ -68,8 +60,8 @@ jobs:
           echo "=== WordPress logs ==="
           docker compose -f tests/e2e/docker-compose.yml logs wordpress
           echo ""
-          echo "=== CLI logs ==="
-          docker compose -f tests/e2e/docker-compose.yml logs cli
+          echo "=== Database logs ==="
+          docker compose -f tests/e2e/docker-compose.yml logs db
 
       - name: Cleanup
         if: always()

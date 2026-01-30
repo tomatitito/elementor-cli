@@ -169,7 +169,7 @@ describe("E2E: templates commands", () => {
       const { stdout, exitCode } = await runCli(["templates", "list"]);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain("Available Templates");
+      expect(stdout).toContain("Templates");
       // Should show built-in templates
       expect(stdout).toContain("blank");
       expect(stdout).toContain("hero-section");
@@ -260,7 +260,7 @@ describe("E2E: templates commands", () => {
 
       expect(exitCode).toBe(0);
       expect(output).toContain("Saved Page Template");
-      expect(output).toContain("saved");
+      expect(output).toContain("Saved template");
 
       // Verify template file exists
       const templatePath = join(PROJECT_TEMPLATES_PATH, "saved-page-template.json");
@@ -362,7 +362,7 @@ describe("E2E: templates commands", () => {
 
       expect(exitCode).toBe(0);
       expect(output).toContain("Simple Import");
-      expect(output).toContain("imported");
+      expect(output).toContain("Imported template");
 
       // Verify template was created
       const templatePath = join(PROJECT_TEMPLATES_PATH, "simple-import.json");
@@ -480,7 +480,7 @@ describe("E2E: templates commands", () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain("Info Test Template");
-      expect(stdout).toContain("Name:");
+      expect(stdout).toContain("Slug:");
       expect(stdout).toContain("Source:");
       expect(stdout).toContain("project");
     });
@@ -520,14 +520,14 @@ describe("E2E: templates commands", () => {
     });
 
     test("fails for non-existent template", async () => {
-      const { exitCode, stderr } = await runCli([
+      const { exitCode, output } = await runCli([
         "templates",
         "info",
         "non-existent-template",
       ]);
 
       expect(exitCode).not.toBe(0);
-      expect(stderr).toContain("not found");
+      expect(output).toContain("not found");
     });
   });
 
@@ -571,7 +571,7 @@ describe("E2E: templates commands", () => {
     });
 
     test("fails for non-existent template", async () => {
-      const { exitCode, stderr } = await runCli([
+      const { exitCode, output } = await runCli([
         "templates",
         "preview",
         "non-existent-template",
@@ -579,7 +579,7 @@ describe("E2E: templates commands", () => {
       ]);
 
       expect(exitCode).not.toBe(0);
-      expect(stderr).toContain("not found");
+      expect(output).toContain("not found");
     });
   });
 
@@ -624,7 +624,7 @@ describe("E2E: templates commands", () => {
     });
 
     test("fails for built-in templates", async () => {
-      const { exitCode, stderr } = await runCli([
+      const { exitCode, output } = await runCli([
         "templates",
         "delete",
         "hero-section",
@@ -632,11 +632,11 @@ describe("E2E: templates commands", () => {
       ]);
 
       expect(exitCode).not.toBe(0);
-      expect(stderr).toContain("built-in");
+      expect(output).toContain("built-in");
     });
 
     test("fails for non-existent template", async () => {
-      const { exitCode, stderr } = await runCli([
+      const { exitCode, output } = await runCli([
         "templates",
         "delete",
         "non-existent-template",
@@ -644,7 +644,7 @@ describe("E2E: templates commands", () => {
       ]);
 
       expect(exitCode).not.toBe(0);
-      expect(stderr).toContain("not found");
+      expect(output).toContain("not found");
     });
   });
 
@@ -702,14 +702,14 @@ describe("E2E: templates commands", () => {
     });
 
     test("fails for non-existent template", async () => {
-      const { exitCode, stderr } = await runCli([
+      const { exitCode, output } = await runCli([
         "templates",
         "export",
         "non-existent-template",
       ]);
 
       expect(exitCode).not.toBe(0);
-      expect(stderr).toContain("not found");
+      expect(output).toContain("not found");
     });
   });
 

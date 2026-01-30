@@ -8,18 +8,18 @@ This document covers the implementation of custom template features.
 
 | Feature | Status |
 |---------|--------|
-| `templates list` | ⬜ Planned |
-| `templates save` | ⬜ Planned |
-| `templates import-html` | ⬜ Planned |
-| `templates info` | ⬜ Planned |
-| `templates preview` | ⬜ Planned |
-| `templates delete` | ⬜ Planned |
-| `templates export` | ⬜ Planned |
-| TemplateStore service | ⬜ Planned |
-| HtmlConverter service | ⬜ Planned |
-| TemplatePreview server | ⬜ Planned |
-| Update `pages create --template` | ⬜ Planned |
-| E2E tests | ⬜ Planned |
+| `templates list` | ✅ Complete |
+| `templates save` | ✅ Complete |
+| `templates import-html` | ✅ Complete |
+| `templates info` | ✅ Complete |
+| `templates preview` | ✅ Complete |
+| `templates delete` | ✅ Complete |
+| `templates export` | ✅ Complete |
+| TemplateStore service | ✅ Complete |
+| HtmlConverter service | ✅ Complete |
+| TemplatePreview server | ✅ Complete |
+| Update `pages create --template` | ✅ Complete |
+| E2E tests | ✅ Complete |
 
 ---
 

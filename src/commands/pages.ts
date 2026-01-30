@@ -3,7 +3,8 @@ import { getSiteConfig } from "../utils/config-store.js";
 import { logger, formatDate } from "../utils/logger.js";
 import { confirmAction } from "../utils/prompts.js";
 import { WordPressClient } from "../services/wordpress-client.js";
-import { getTemplateWithFreshIds, listTemplates } from "../services/template-library.js";
+import { listTemplates } from "../services/template-library.js";
+import { TemplateStore } from "../services/template-store.js";
 
 export const pagesCommand = new Command("pages").description(
   "List and manage pages"
@@ -173,20 +174,21 @@ See also:
     try {
       const { name: siteName, config } = await getSiteConfig(options.site);
 
-      // Get template if specified
+      // Get template if specified (supports built-in, global, and project templates)
       let elementorData: string | undefined;
       let pageSettings: Record<string, unknown> | undefined;
 
       if (options.template) {
-        const template = getTemplateWithFreshIds(options.template);
+        const store = new TemplateStore();
+        const template = await store.getWithFreshIds(options.template);
         if (!template) {
           logger.error(`Template "${options.template}" not found.`);
-          logger.info("Run 'elementor-cli pages templates' to see available templates.");
+          logger.info("Run 'elementor-cli templates list' to see available templates.");
           process.exit(1);
         }
         elementorData = JSON.stringify(template.elements);
-        pageSettings = template.settings;
-        logger.dim(`Using template: ${template.name}`);
+        pageSettings = template.settings as Record<string, unknown>;
+        logger.dim(`Using template: ${template.name} (${template.source})`);
       }
 
       const spinner = logger.spinner(`Creating page "${title}"...`);
@@ -222,21 +224,48 @@ Use templates when creating pages:
   $ elementor-cli pages create "Home" --template landing-page
 
 See also:
-  elementor-cli pages create   Create a new page
+  elementor-cli pages create     Create a new page
+  elementor-cli templates list   Full template management
 `
   )
-  .action(() => {
-    const templates = listTemplates();
+  .action(async () => {
+    const store = new TemplateStore();
+    const templates = await store.listAll();
 
     logger.heading("Available Page Templates");
     console.log("");
 
-    for (const template of templates) {
-      console.log(`  ${template.key.padEnd(24)} ${template.description}`);
+    // Group by source
+    const builtIn = templates.filter((t) => t.source === "built-in");
+    const project = templates.filter((t) => t.source === "project");
+    const global = templates.filter((t) => t.source === "global");
+
+    if (builtIn.length > 0) {
+      console.log("Built-in:");
+      for (const t of builtIn) {
+        console.log(`  ${t.slug.padEnd(24)} ${t.description || ""}`);
+      }
+      console.log("");
     }
 
-    console.log("");
+    if (project.length > 0) {
+      console.log("Custom (project):");
+      for (const t of project) {
+        console.log(`  ${t.slug.padEnd(24)} ${t.description || ""}`);
+      }
+      console.log("");
+    }
+
+    if (global.length > 0) {
+      console.log("Custom (global):");
+      for (const t of global) {
+        console.log(`  ${t.slug.padEnd(24)} ${t.description || ""}`);
+      }
+      console.log("");
+    }
+
     logger.dim("Usage: elementor-cli pages create <title> --template <template-name>");
+    logger.dim("For more template options: elementor-cli templates --help");
   });
 
 // pages delete
