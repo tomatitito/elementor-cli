@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { readConfig } from "../utils/config-store.js";
-import type { PageData, ElementorElement, PageSettings } from "../types/elementor.js";
+import type { PageData, ElementorElement, PageSettings, PageStatus } from "../types/elementor.js";
 
 export interface LocalPageData {
   page: PageData;
@@ -9,7 +9,7 @@ export interface LocalPageData {
   meta: {
     title: string;
     slug: string;
-    status: string;
+    status: PageStatus;
     template?: string;
   };
 }
@@ -91,7 +91,7 @@ export class LocalStore {
       Bun.file(`${dir}/meta.json`).json() as Promise<{
         title: string;
         slug: string;
-        status: string;
+        status: PageStatus;
         template?: string;
       }>,
     ]);
@@ -124,7 +124,7 @@ export class LocalStore {
     return Array.isArray(settings) ? {} : settings;
   }
 
-  async loadMeta(siteName: string, pageId: number): Promise<{ title: string; slug: string; status: string; template?: string } | null> {
+  async loadMeta(siteName: string, pageId: number): Promise<{ title: string; slug: string; status: PageStatus; template?: string } | null> {
     const dir = this.getPageDir(siteName, pageId);
     const file = Bun.file(`${dir}/meta.json`);
     if (!(await file.exists())) {

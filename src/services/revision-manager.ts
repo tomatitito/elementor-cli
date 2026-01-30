@@ -40,9 +40,19 @@ export class RevisionManager {
       throw new Error("Revision does not contain Elementor data");
     }
 
+    // Parse page settings if they exist (stored as JSON string in meta)
+    let pageSettings: Record<string, unknown> | undefined;
+    if (revision.meta._elementor_page_settings) {
+      try {
+        pageSettings = JSON.parse(revision.meta._elementor_page_settings);
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
     await this.client.updatePage(pageId, {
       elementorData: revision.meta._elementor_data,
-      pageSettings: revision.meta._elementor_page_settings,
+      pageSettings,
     });
   }
 

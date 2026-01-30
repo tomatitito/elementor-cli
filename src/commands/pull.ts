@@ -105,6 +105,11 @@ See also:
       logger.success(
         `Pulled ${pulled} page(s)${skipped > 0 ? `, skipped ${skipped}` : ""}`
       );
+
+      // Exit with error if no pages were successfully pulled and we weren't pulling all
+      if (pulled === 0 && !options.all && pagesToPull.length > 0) {
+        process.exit(1);
+      }
     } catch (error) {
       logger.error(`Pull failed: ${error}`);
       process.exit(1);

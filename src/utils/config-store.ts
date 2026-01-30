@@ -4,6 +4,11 @@ import { ConfigSchema, type Config, type SiteConfig } from "../types/config.js";
 const CONFIG_FILE = ".elementor-cli.yaml";
 
 export async function getConfigPath(): Promise<string> {
+  // Support custom config path via environment variable (useful for testing)
+  const envPath = process.env.ELEMENTOR_CLI_CONFIG;
+  if (envPath) {
+    return envPath;
+  }
   return `${process.cwd()}/${CONFIG_FILE}`;
 }
 

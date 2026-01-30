@@ -1,0 +1,40 @@
+name: elementor-cli-test
+
+services:
+  wordpress:
+    image: wordpress:6.7-php8.2
+    container_name: elementor-cli-test-wp
+    ports:
+      - "8888:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: 1
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./seed.sh:/seed.sh:ro
+      - ./wp-entrypoint.sh:/usr/local/bin/wp-entrypoint.sh:ro
+    depends_on:
+      - db
+    entrypoint: ["/usr/local/bin/wp-entrypoint.sh"]
+
+  db:
+    image: mysql:8.0
+    container_name: elementor-cli-test-db
+    # Use mysql_native_password for compatibility with WordPress CLI (MariaDB client)
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  wordpress_data:
+  db_data:

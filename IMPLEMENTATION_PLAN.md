@@ -743,8 +743,8 @@ src/
 
 ### Infrastructure
 - [x] Version-based releases - Trigger GitHub releases when `package.json` version changes on push (replace tag-based workflow)
-- [ ] Test fixture - WordPress + Elementor Docker setup with seed data (test pages, application password) for local and CI testing. Once complete, remove temporary directories: `docker/`, `wordpress_01/`, `database_dumps/`
-- [ ] End-to-end tests using testcontainers - Spin up real WordPress + MySQL containers for integration testing (CSS editing, URL rewriting, database dump, pull/push workflows)
+- [x] Test fixture - WordPress + Elementor Docker setup with seed data (test pages, application password) for local and CI testing. See `tests/e2e/` directory.
+- [x] End-to-end tests using Bun test - E2E test suite in `tests/e2e/` with Docker Compose for WordPress + MySQL. Tests cover pages, pull/push/diff, preview, db, and revisions commands. Run with `bun test:e2e`.
 
 ### Features
 

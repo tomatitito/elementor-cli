@@ -14,7 +14,7 @@ describe("WordPressClient", () => {
           json: () => Promise.resolve([]),
         })
       );
-      globalThis.fetch = fetchMock as typeof fetch;
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
     });
 
     test("uses status[] array parameters when status is 'all'", async () => {

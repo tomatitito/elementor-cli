@@ -13,11 +13,13 @@ export interface PageSettings {
   [key: string]: unknown;
 }
 
+export type PageStatus = "publish" | "draft" | "private" | "pending" | "trash";
+
 export interface PageData {
   id: number;
   title: string;
   slug: string;
-  status: "publish" | "draft" | "private" | "pending" | "trash";
+  status: PageStatus;
   template?: string; // WordPress page template (e.g., "elementor_canvas", "elementor_header_footer")
   elementor_data: ElementorElement[];
   page_settings: PageSettings;
@@ -32,7 +34,7 @@ export interface LocalPageFiles {
   meta: {
     title: string;
     slug: string;
-    status: string;
+    status: PageStatus;
     template?: string;
   };
 }

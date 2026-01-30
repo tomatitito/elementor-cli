@@ -9,7 +9,10 @@
     "dev": "bun --watch run src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outfile dist/elementor-cli --target bun",
-    "test": "bun test",
+    "test": "bun test --ignore 'tests/e2e/**'",
+    "test:e2e": "bun test tests/e2e",
+    "test:e2e:setup": "cd tests/e2e && docker compose up -d",
+    "test:e2e:teardown": "cd tests/e2e && docker compose down -v",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
