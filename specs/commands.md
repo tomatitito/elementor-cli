@@ -671,6 +671,157 @@ Path: container[0] > widget[2](heading)
 
 ---
 
+## `elementor-cli templates`
+
+Manage page templates (built-in and custom).
+
+```bash
+# List all templates (built-in + custom)
+elementor-cli templates list
+
+# Save an existing page as a reusable template
+elementor-cli templates save <page-id> <template-name> [--site <name>] [--description "..."]
+
+# Import template from HTML file
+elementor-cli templates import-html <html-file> <template-name> [--description "..."]
+
+# Show template details
+elementor-cli templates info <template-name>
+
+# Preview template in browser
+elementor-cli templates preview <template-name>
+
+# Delete a custom template
+elementor-cli templates delete <template-name>
+
+# Export a template to JSON file
+elementor-cli templates export <template-name> [--output <file>]
+```
+
+### Template Storage
+
+Templates are stored in two locations:
+
+| Location | Purpose |
+|----------|---------|
+| `~/.elementor-cli/templates/` | Global templates (shared across projects) |
+| `.elementor-cli/templates/` | Project-local templates (project-specific) |
+
+Project-local templates take precedence over global templates with the same name.
+
+### Template File Format
+
+```json
+{
+  "name": "My Custom Template",
+  "description": "Custom template description",
+  "elements": [...],
+  "settings": {...},
+  "source": "page",
+  "sourceId": 42,
+  "created_at": "2024-01-27T12:00:00Z"
+}
+```
+
+### `templates save`
+
+Save an existing page as a reusable template:
+
+```bash
+# Save page 42 as "homepage-layout"
+elementor-cli templates save 42 homepage-layout
+
+# Save with description
+elementor-cli templates save 42 homepage-layout --description "Full homepage with hero and features"
+
+# Save from specific site
+elementor-cli templates save 42 homepage-layout --site production
+```
+
+The command:
+1. Fetches the page from remote (or uses local if already pulled)
+2. Extracts Elementor elements and page settings
+3. Stores as template JSON in `.elementor-cli/templates/<template-name>.json`
+
+### `templates import-html`
+
+Create a template from an HTML file:
+
+```bash
+# Import HTML as template
+elementor-cli templates import-html landing.html my-landing
+
+# Import with description
+elementor-cli templates import-html landing.html my-landing --description "Converted from static HTML"
+```
+
+HTML elements are converted to Elementor widgets:
+- `<h1>`-`<h6>` → `heading` widget
+- `<p>`, `<div>` with text → `text-editor` widget
+- `<img>` → `image` widget
+- `<a>` with button classes → `button` widget
+- `<section>`, `<div>` → `container` element
+
+### `templates preview`
+
+Preview a template rendered in the browser:
+
+```bash
+# Preview a template
+elementor-cli templates preview my-landing
+
+# Preview on custom port
+elementor-cli templates preview my-landing --port 3001
+
+# Don't open browser automatically
+elementor-cli templates preview my-landing --no-open
+```
+
+The command:
+1. Starts a local HTTP server
+2. Renders the template elements as static HTML with basic Elementor-like styling
+3. Opens the preview in the default browser
+4. Press Ctrl+C to stop the server
+
+**Note:** This is a simplified preview. For full Elementor rendering with all widgets and styling, sync the template to staging first.
+
+### Using Templates
+
+Create pages with templates:
+
+```bash
+# Create page with built-in template
+elementor-cli pages create "Home" --template hero-section
+
+# Create page with custom template
+elementor-cli pages create "Home" --template my-landing
+
+# List available templates
+elementor-cli templates list
+```
+
+**Output Example:**
+```
+Templates:
+
+Built-in:
+  blank                 Empty page with no content
+  hero-section          Full-width hero with heading, text, and CTA button
+  two-column            Two-column layout with image and text
+  three-column-features Three-column grid for showcasing features
+  contact-form          Contact information section
+  landing-page          Full landing page with hero, features, and CTA
+
+Custom (project):
+  homepage-layout       Full homepage with hero and features [from page 42]
+  my-landing            Converted from static HTML
+
+Custom (global):
+  company-footer        Standard company footer section
+```
+
+---
+
 ## `elementor-cli update`
 
 Check for updates and install the latest version.

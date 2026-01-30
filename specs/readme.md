@@ -80,3 +80,4 @@ elementor-cli push 42
 | `studio` | Web UI for side-by-side page editing |
 | `export` | Export page as Elementor JSON template |
 | `export-html` | Export page as static HTML |
+| `templates` | Manage page templates (save, import, preview) |
