@@ -10,6 +10,7 @@ export const StagingConfigSchema = z.object({
   path: z.string().default(".elementor-cli/staging"),
   service: z.string().default("wordpress"),
   url: z.string().default("http://localhost:8080"),
+  wpCommand: z.string().default("wp"),
 });
 
 export const ConfigSchema = z.object({

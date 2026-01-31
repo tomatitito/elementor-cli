@@ -39,6 +39,9 @@ staging:
   # Local staging URL
   url: http://localhost:8080
 
+  # WP-CLI command (useful if wp is not in PATH or uses a different name)
+  wpCommand: wp  # or "php wp-cli.phar" or path to wp-cli
+
 # Local pages storage directory
 pagesDir: .elementor-cli/pages
 ```
@@ -58,8 +61,9 @@ Each site requires:
 | Field | Default | Description |
 |-------|---------|-------------|
 | `path` | `.elementor-cli/staging` | Path to docker-compose.yml |
-| `service` | `wordpress` | WordPress service name in compose file |
+| `service` | `wordpress` | WordPress service name in compose file (which container has WP-CLI) |
 | `url` | `http://localhost:8080` | Local staging URL |
+| `wpCommand` | `wp` | WP-CLI command to use (e.g., `php wp-cli.phar` if wp is not in PATH) |
 
 ### Generating Application Passwords
 

@@ -16,11 +16,13 @@ export class DockerManager {
   private composePath: string;
   private service: string;
   private url: string;
+  private wpCommand: string;
 
   constructor(config: StagingConfig) {
     this.composePath = config.path;
     this.service = config.service;
     this.url = config.url;
+    this.wpCommand = config.wpCommand || "wp";
   }
 
   static async create(composeFile?: string): Promise<DockerManager> {
@@ -188,7 +190,9 @@ export class DockerManager {
   }
 
   async execWpCli(command: string[]): Promise<string> {
-    const args = ["exec", this.service, "wp", "--allow-root", ...command];
+    // Support multi-word wp commands like "php wp-cli.phar"
+    const wpCommandParts = this.wpCommand.split(/\s+/);
+    const args = ["exec", this.service, ...wpCommandParts, "--allow-root", ...command];
     return this.runCommand(args, { capture: true });
   }
 
