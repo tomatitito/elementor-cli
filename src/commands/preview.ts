@@ -315,7 +315,8 @@ See also:
           await docker.updatePostMeta(
             id,
             "_elementor_page_settings",
-            parser.serializeSettings(settings)
+            parser.serializeSettings(settings),
+            { format: "json" }
           );
 
           // Flush CSS cache
@@ -517,7 +518,8 @@ See also:
           await docker.updatePostMeta(
             pageId,
             "_elementor_page_settings",
-            parser.serializeSettings(settings)
+            parser.serializeSettings(settings),
+            { format: "json" }
           );
 
           // Flush CSS cache

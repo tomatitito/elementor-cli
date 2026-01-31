@@ -195,16 +195,25 @@ export class DockerManager {
   async updatePostMeta(
     postId: number,
     metaKey: string,
-    metaValue: string
+    metaValue: string,
+    options: { format?: "json" | "plaintext" } = {}
   ): Promise<void> {
-    await this.execWpCli([
+    const args = [
       "post",
       "meta",
       "update",
       String(postId),
       metaKey,
       metaValue,
-    ]);
+    ];
+
+    // Use --format=json to properly decode JSON values and let WordPress serialize them
+    // This is required for Elementor meta fields that expect PHP serialized arrays
+    if (options.format === "json") {
+      args.push("--format=json");
+    }
+
+    await this.execWpCli(args);
   }
 
   async flushElementorCss(): Promise<void> {
