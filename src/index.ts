@@ -17,6 +17,7 @@ import { exportCommand } from "./commands/export.js";
 import { exportHtmlCommand } from "./commands/export-html.js";
 import { updateCommand } from "./commands/update.js";
 import { templatesCommand } from "./commands/templates.js";
+import { stagesCommand } from "./commands/stages.js";
 import pkg from "../package.json";
 
 const program = new Command();
@@ -58,5 +59,6 @@ program.addCommand(exportCommand);
 program.addCommand(exportHtmlCommand);
 program.addCommand(updateCommand);
 program.addCommand(templatesCommand);
+program.addCommand(stagesCommand);
 
 program.parse();

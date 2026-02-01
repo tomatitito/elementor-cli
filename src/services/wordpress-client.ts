@@ -52,12 +52,10 @@ export class WordPressClient {
 
     if (options.status && options.status !== "all") {
       params.set("status", options.status);
-    } else {
-      // WordPress REST API requires separate status[] parameters
-      for (const status of ["publish", "draft", "private", "pending"]) {
-        params.append("status[]", status);
-      }
     }
+    // When status is "all" or not specified, don't send status parameter
+    // This returns only published pages by default, but avoids API errors
+    // on WordPress installations that don't support status filtering
 
     return this.request<WPPage[]>(`/wp/v2/pages?${params}`);
   }

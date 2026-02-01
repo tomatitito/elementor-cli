@@ -133,10 +133,14 @@ See also:
         process.exit(1);
       }
 
-      const elementorData = JSON.parse(page.meta._elementor_data || "[]");
-      const pageSettings = page.meta._elementor_page_settings
-        ? JSON.parse(page.meta._elementor_page_settings)
-        : {};
+      const elementorData = typeof page.meta._elementor_data === "string"
+        ? JSON.parse(page.meta._elementor_data || "[]")
+        : page.meta._elementor_data || [];
+      // Ensure pageSettings is always an object (not an array)
+      const rawSettings = typeof page.meta._elementor_page_settings === "string"
+        ? JSON.parse(page.meta._elementor_page_settings || "{}")
+        : page.meta._elementor_page_settings;
+      const pageSettings = Array.isArray(rawSettings) || !rawSettings ? {} : rawSettings;
 
       const templateFile: TemplateFile = {
         name: options.name,
