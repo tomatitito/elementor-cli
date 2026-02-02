@@ -1,12 +1,13 @@
 import { Command } from "commander";
 import { spawn } from "node:child_process";
 import { watch as fsWatch } from "node:fs";
-import { readConfig, writeConfig } from "../utils/config-store.js";
+import { readConfig, writeConfig, addSite } from "../utils/config-store.js";
 import { logger } from "../utils/logger.js";
 import { DockerManager } from "../services/docker-manager.js";
 import { LocalStore } from "../services/local-store.js";
 import { ElementorParser } from "../services/elementor-parser.js";
 import type { ElementorElement } from "../types/elementor.js";
+import { input, confirm } from "@inquirer/prompts";
 
 export const previewCommand = new Command("preview").description(
   "Local Docker staging environment for previewing changes"
@@ -184,6 +185,240 @@ See also:
       }
     } catch (error) {
       logger.error(`Failed to get status: ${error}`);
+      process.exit(1);
+    }
+  });
+
+// preview setup
+previewCommand
+  .command("setup")
+  .description("Set up staging for API access (creates mu-plugin, user, app password)")
+  .option("-u, --username <username>", "WordPress username", "admin")
+  .option("-e, --email <email>", "Email for new user")
+  .option("-p, --password <password>", "Password for new user")
+  .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--skip-mu-plugin", "Skip creating the mu-plugin")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ elementor-cli preview setup
+  $ elementor-cli preview setup --username admin --email admin@example.com
+  $ elementor-cli preview setup --skip-mu-plugin
+  $ elementor-cli preview setup -y                Skip confirmation prompts
+
+This command:
+  1. Creates a mu-plugin to enable Application Passwords over HTTP
+  2. Creates or uses an existing WordPress admin user
+  3. Generates an application password for REST API access
+  4. Updates .elementor-cli.yaml with the staging site configuration
+
+See also:
+  elementor-cli preview start     Start the environment
+  elementor-cli pages list        List pages on configured site
+`
+  )
+  .action(async (options) => {
+    try {
+      const docker = await DockerManager.create(options.composeFile);
+
+      // Check if staging is running
+      const spinner = logger.spinner("Checking staging environment...");
+      const status = await docker.getStatus();
+
+      if (!status.running) {
+        spinner.fail("Staging environment is not running.");
+        logger.info("Run 'elementor-cli preview start' first.");
+        process.exit(1);
+      }
+
+      spinner.succeed(`Staging is running at ${docker.getUrl()}`);
+
+      // Ensure WP-CLI is installed
+      const wpCliSpinner = logger.spinner("Ensuring WP-CLI is installed...");
+      try {
+        await docker.ensureWpCli();
+        wpCliSpinner.succeed("WP-CLI is ready");
+      } catch (error) {
+        wpCliSpinner.fail(`Failed to install WP-CLI: ${error}`);
+        process.exit(1);
+      }
+
+      // Check if WordPress is installed
+      const wpInstallSpinner = logger.spinner("Checking WordPress installation...");
+      const isInstalled = await docker.isWordPressInstalled();
+
+      if (!isInstalled) {
+        wpInstallSpinner.text = "Installing WordPress...";
+
+        let adminEmail = options.email || `${options.username}@example.com`;
+        if (!options.yes && !options.email) {
+          wpInstallSpinner.stop();
+          adminEmail = await input({
+            message: "Admin email address:",
+            default: `${options.username}@example.com`,
+          });
+          wpInstallSpinner.start();
+          wpInstallSpinner.text = "Installing WordPress...";
+        }
+
+        try {
+          await docker.installWordPress({
+            url: docker.getUrl(),
+            title: "Staging Site",
+            adminUser: options.username,
+            adminPassword: options.password || "admin",
+            adminEmail,
+          });
+          wpInstallSpinner.succeed("WordPress installed");
+        } catch (error) {
+          wpInstallSpinner.fail(`Failed to install WordPress: ${error}`);
+          process.exit(1);
+        }
+      } else {
+        wpInstallSpinner.succeed("WordPress is already installed");
+      }
+
+      // Create mu-plugins unless skipped
+      if (!options.skipMuPlugin) {
+        const muPluginSpinner = logger.spinner("Creating mu-plugins...");
+
+        try {
+          // Create mu-plugins directory if it doesn't exist
+          await docker.execBash("mkdir -p /var/www/html/wp-content/mu-plugins");
+
+          // Create enable-app-passwords-http.php
+          const appPasswordsPath = "/var/www/html/wp-content/mu-plugins/enable-app-passwords-http.php";
+          const appPasswordsContent = `<?php
+/**
+ * Plugin Name: Enable Application Passwords on HTTP
+ * Description: Allows Application Passwords to work over HTTP (for local development)
+ */
+add_filter('wp_is_application_passwords_available', '__return_true');
+`;
+          try {
+            await docker.execBash(`test -f ${appPasswordsPath}`);
+          } catch {
+            const escapedContent = appPasswordsContent.replace(/'/g, "'\\''");
+            await docker.execBash(`echo '${escapedContent}' > ${appPasswordsPath}`);
+          }
+
+          // Create elementor-rest-api.php to expose Elementor meta fields
+          const elementorRestPath = "/var/www/html/wp-content/mu-plugins/elementor-rest-api.php";
+          const elementorRestContent = `<?php
+/**
+ * Plugin Name: Elementor REST API Meta
+ * Description: Exposes Elementor meta fields in the REST API
+ */
+add_action('init', function() {
+    $meta_keys = [
+        '_elementor_edit_mode',
+        '_elementor_data',
+        '_elementor_page_settings',
+        '_elementor_css',
+    ];
+    foreach ($meta_keys as $key) {
+        register_post_meta('page', $key, [
+            'show_in_rest' => true,
+            'single' => true,
+            'type' => 'string',
+        ]);
+    }
+});
+`;
+          try {
+            await docker.execBash(`test -f ${elementorRestPath}`);
+          } catch {
+            const escapedContent = elementorRestContent.replace(/'/g, "'\\''");
+            await docker.execBash(`echo '${escapedContent}' > ${elementorRestPath}`);
+          }
+
+          muPluginSpinner.succeed("mu-plugins ready");
+        } catch (error) {
+          muPluginSpinner.fail(`Failed to create mu-plugins: ${error}`);
+          process.exit(1);
+        }
+      }
+
+      // Handle user
+      const username = options.username;
+      let userSpinner = logger.spinner(`Checking user '${username}'...`);
+
+      const userExists = await docker.userExists(username);
+
+      if (userExists) {
+        userSpinner.succeed(`User '${username}' already exists, using existing user.`);
+      } else {
+        userSpinner.text = `Creating user '${username}'...`;
+
+        let email = options.email;
+        if (!email && !options.yes) {
+          userSpinner.stop();
+          email = await input({
+            message: "Email for new user:",
+            default: `${username}@localhost`,
+          });
+          userSpinner = logger.spinner(`Creating user '${username}'...`);
+        } else if (!email) {
+          email = `${username}@localhost`;
+        }
+
+        try {
+          await docker.createUser(username, email, options.password);
+          userSpinner.succeed(`Created user '${username}'`);
+        } catch (error) {
+          userSpinner.fail(`Failed to create user: ${error}`);
+          process.exit(1);
+        }
+      }
+
+      // Create application password
+      const appPasswordSpinner = logger.spinner("Creating application password...");
+      let appPassword: string;
+
+      try {
+        appPassword = await docker.createAppPassword(username, "elementor-cli");
+        appPasswordSpinner.succeed("Application password created");
+      } catch (error) {
+        appPasswordSpinner.fail(`Failed to create application password: ${error}`);
+        process.exit(1);
+      }
+
+      // Show configuration summary
+      console.log("");
+      logger.heading("Staging Configuration");
+      console.log(`  Site name: staging`);
+      console.log(`  URL: ${docker.getUrl()}`);
+      console.log(`  Username: ${username}`);
+      console.log(`  App Password: ${appPassword}`);
+      console.log("");
+
+      // Confirm and save
+      let shouldSave = options.yes;
+      if (!shouldSave) {
+        shouldSave = await confirm({
+          message: "Save this configuration?",
+          default: true,
+        });
+      }
+
+      if (shouldSave) {
+        await addSite("staging", {
+          url: docker.getUrl(),
+          username: username,
+          appPassword: appPassword,
+        });
+        logger.success("Site 'staging' added to .elementor-cli.yaml");
+
+        console.log("");
+        logger.info("Next steps:");
+        logger.dim("  Run 'elementor-cli pages list --site staging' to verify");
+      } else {
+        logger.info("Configuration not saved.");
+      }
+    } catch (error) {
+      logger.error(`Setup failed: ${error}`);
       process.exit(1);
     }
   });

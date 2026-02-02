@@ -305,6 +305,92 @@ volumes:
     }
   }
 
+  async ensureWpCli(): Promise<void> {
+    try {
+      // Check if WP-CLI is already installed
+      await this.execBash("which wp || test -f /usr/local/bin/wp");
+    } catch {
+      // Install WP-CLI
+      await this.execBash(
+        "curl -sS -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && chmod +x /usr/local/bin/wp"
+      );
+    }
+  }
+
+  async isWordPressInstalled(): Promise<boolean> {
+    try {
+      await this.execWpCli(["core", "is-installed"]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async installWordPress(options: {
+    url: string;
+    title: string;
+    adminUser: string;
+    adminPassword: string;
+    adminEmail: string;
+  }): Promise<void> {
+    await this.execWpCli([
+      "core",
+      "install",
+      `--url=${options.url}`,
+      `--title=${options.title}`,
+      `--admin_user=${options.adminUser}`,
+      `--admin_password=${options.adminPassword}`,
+      `--admin_email=${options.adminEmail}`,
+      "--skip-email",
+    ]);
+
+    // Set up pretty permalinks for REST API
+    await this.execWpCli(["rewrite", "structure", "/%postname%/"]);
+  }
+
+  async userExists(username: string): Promise<boolean> {
+    try {
+      await this.execWpCli(["user", "get", username, "--format=json"]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async createUser(username: string, email: string, password?: string): Promise<number> {
+    const args = [
+      "user",
+      "create",
+      username,
+      email,
+      "--role=administrator",
+      "--porcelain",
+    ];
+    if (password) {
+      args.push(`--user_pass=${password}`);
+    }
+    const output = await this.execWpCli(args);
+    return parseInt(output.trim(), 10);
+  }
+
+  async createAppPassword(username: string, appName: string): Promise<string> {
+    const output = await this.execWpCli([
+      "user",
+      "application-password",
+      "create",
+      username,
+      appName,
+      "--porcelain",
+    ]);
+    // Output is just the password (e.g., "xxxx xxxx xxxx xxxx xxxx xxxx")
+    return output.trim();
+  }
+
+  async execBash(command: string): Promise<string> {
+    const args = ["exec", this.service, "bash", "-c", command];
+    return this.runCommand(args, { capture: true });
+  }
+
   async dbRestore(sql: string): Promise<void> {
     // Write SQL to temp file and import
     const tempFile = `/tmp/elementor-cli-restore-${Date.now()}.sql`;

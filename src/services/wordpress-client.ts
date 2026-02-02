@@ -50,12 +50,14 @@ export class WordPressClient {
       _fields: "id,title,slug,status,modified,meta,template",
     });
 
-    if (options.status && options.status !== "all") {
+    if (options.status === "all") {
+      // WordPress REST API uses "any" to get all statuses
+      params.set("status", "any");
+    } else if (options.status) {
       params.set("status", options.status);
     }
-    // When status is "all" or not specified, don't send status parameter
-    // This returns only published pages by default, but avoids API errors
-    // on WordPress installations that don't support status filtering
+    // When status is not specified, don't send status parameter
+    // This returns only published pages by default
 
     return this.request<WPPage[]>(`/wp/v2/pages?${params}`);
   }

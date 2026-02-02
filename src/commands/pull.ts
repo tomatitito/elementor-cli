@@ -39,7 +39,7 @@ See also:
 
       if (options.all) {
         const spinner = logger.spinner("Fetching page list...");
-        const pages = await client.listPages();
+        const pages = await client.listPages({ status: "all" });
         const elementorPages = pages.filter((p) => client.isElementorPage(p));
         pagesToPull = elementorPages.map((p) => p.id);
         spinner.stop();
