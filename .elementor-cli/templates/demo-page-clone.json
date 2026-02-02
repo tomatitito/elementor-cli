@@ -1,0 +1,64 @@
+{
+  "name": "demo-page-clone",
+  "slug": "demo-page-clone",
+  "description": "",
+  "source": "project",
+  "elements": [
+    {
+      "id": "abc12345",
+      "elType": "section",
+      "settings": {},
+      "elements": [
+        {
+          "id": "def67890",
+          "elType": "column",
+          "settings": {
+            "_column_size": 100
+          },
+          "elements": [
+            {
+              "id": "ghi11111",
+              "elType": "widget",
+              "widgetType": "heading",
+              "settings": {
+                "title": "Hello from Elementor CLI!",
+                "header_size": "h1"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jkl22222",
+      "elType": "section",
+      "settings": {
+        "background_background": "classic",
+        "background_color": "#f0f0f0"
+      },
+      "elements": [
+        {
+          "id": "mno33333",
+          "elType": "column",
+          "settings": {
+            "_column_size": 100
+          },
+          "elements": [
+            {
+              "id": "pqr44444",
+              "elType": "widget",
+              "widgetType": "text-editor",
+              "settings": {
+                "editor": "<p>This content was added via the Elementor CLI!</p><p>You can edit pages programmatically.</p>"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "settings": {},
+  "sourcePageId": 9,
+  "created_at": "2026-02-01T22:44:17.107Z",
+  "updated_at": "2026-02-01T22:44:17.107Z"
+}

@@ -1,8 +1,8 @@
 sites:
   staging:
     url: http://localhost:8080
-    username: praxis-jukimed
-    appPassword: elementorcliaccess
+    username: admin
+    appPassword: wYcFJgc89EWYszIBeTG5ErFL
 staging:
   path: .elementor-cli/staging
   service: wordpress

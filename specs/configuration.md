@@ -74,6 +74,21 @@ Each site requires:
 5. Click **Add New Application Password**
 6. Copy the generated password (spaces included)
 
+### Enabling Application Passwords over HTTP (Local Development)
+
+WordPress only allows Application Passwords over HTTPS by default. For local development environments using HTTP, you need to install a must-use plugin.
+
+Create the file `wp-content/mu-plugins/enable-app-passwords-http.php`:
+
+```php
+<?php
+// Enable Application Passwords over HTTP for local development
+add_filter('wp_is_application_passwords_available', '__return_true');
+add_filter('application_password_is_api_request', '__return_true');
+```
+
+**Warning:** Only use this on local development environments. Never deploy this to production sites.
+
 ---
 
 ## Local File Structure
