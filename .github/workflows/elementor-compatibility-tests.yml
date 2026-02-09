@@ -1,0 +1,214 @@
+name: Elementor Compatibility Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      elementor_version:
+        description: 'Current Elementor version to test'
+        required: true
+      previous_1_version:
+        description: 'Previous-1 Elementor version'
+        required: false
+      previous_2_version:
+        description: 'Previous-2 Elementor version'
+        required: false
+      issue_number:
+        description: 'Issue number for posting results'
+        required: false
+
+jobs:
+  test-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version_type: current
+            version_input: elementor_version
+          - version_type: previous-1
+            version_input: previous_1_version
+          - version_type: previous-2
+            version_input: previous_2_version
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version to test
+        id: version
+        run: |
+          VERSION_TYPE="${{ matrix.version_type }}"
+          if [ "$VERSION_TYPE" = "current" ]; then
+            VERSION="${{ github.event.inputs.elementor_version }}"
+          elif [ "$VERSION_TYPE" = "previous-1" ]; then
+            VERSION="${{ github.event.inputs.previous_1_version }}"
+          else
+            VERSION="${{ github.event.inputs.previous_2_version }}"
+          fi
+
+          if [ -z "$VERSION" ]; then
+            echo "No version specified for $VERSION_TYPE, skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Testing Elementor version: $VERSION"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Bun
+        if: steps.version.outputs.skip != 'true'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        if: steps.version.outputs.skip != 'true'
+        run: bun install
+
+      - name: Start test environment with specific Elementor version
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          cd tests/e2e
+
+          # Export the Elementor version for the seed script
+          export ELEMENTOR_VERSION="${{ steps.version.outputs.version }}"
+
+          # Start containers
+          docker compose up -d
+
+          # Wait for WordPress to be ready
+          echo "Waiting for WordPress..."
+          timeout 120 bash -c 'until curl -s http://localhost:8888 > /dev/null 2>&1; do sleep 2; done'
+
+          # Wait for seed script to complete
+          echo "Waiting for seed script..."
+          timeout 180 bash -c 'until docker exec elementor-cli-test-wp test -f /var/www/html/wp-content/test-pages.json 2>/dev/null; do sleep 5; done'
+
+          # Verify Elementor version installed
+          INSTALLED_VERSION=$(docker exec elementor-cli-test-wp wp plugin get elementor --field=version --path=/var/www/html --allow-root 2>/dev/null || echo "unknown")
+          echo "Installed Elementor version: $INSTALLED_VERSION"
+
+          echo "Test environment ready!"
+
+      - name: Show container status
+        if: steps.version.outputs.skip != 'true'
+        run: docker compose -f tests/e2e/docker-compose.yml ps
+
+      - name: Show test credentials
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          echo "Test pages:"
+          docker exec elementor-cli-test-wp cat /var/www/html/wp-content/test-pages.json
+          echo ""
+          echo "Elementor version:"
+          docker exec elementor-cli-test-wp wp plugin get elementor --field=version --path=/var/www/html --allow-root
+
+      - name: Run E2E tests
+        if: steps.version.outputs.skip != 'true'
+        id: tests
+        run: bun test:e2e
+        env:
+          E2E_TEST_URL: http://localhost:8888
+
+      - name: Show container logs on failure
+        if: failure() && steps.version.outputs.skip != 'true'
+        run: |
+          echo "=== WordPress logs ==="
+          docker compose -f tests/e2e/docker-compose.yml logs wordpress
+          echo ""
+          echo "=== Database logs ==="
+          docker compose -f tests/e2e/docker-compose.yml logs db
+
+      - name: Cleanup
+        if: always() && steps.version.outputs.skip != 'true'
+        run: docker compose -f tests/e2e/docker-compose.yml down -v
+
+      - name: Post results to issue
+        if: github.event.inputs.issue_number && steps.version.outputs.skip != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const versionType = '${{ matrix.version_type }}';
+            const version = '${{ steps.version.outputs.version }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt('${{ github.event.inputs.issue_number }}'),
+              body: `${emoji} **${versionType}** (Elementor ${version}): ${status}`
+            });
+
+  update-compatibility-status:
+    needs: test-compatibility
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update version tracking
+        run: |
+          # Determine overall status
+          if [ "${{ needs.test-compatibility.result }}" = "success" ]; then
+            STATUS="passing"
+          else
+            STATUS="failing"
+          fi
+
+          # Update the versions JSON if it exists
+          if [ -f .github/elementor-versions.json ]; then
+            # Update test status for the current version
+            jq --arg version "${{ github.event.inputs.elementor_version }}" \
+               --arg status "$STATUS" \
+               '.test_status[$version] = $status' \
+               .github/elementor-versions.json > .github/elementor-versions.json.tmp
+            mv .github/elementor-versions.json.tmp .github/elementor-versions.json
+
+            git config user.name "GitHub Actions"
+            git config user.email "actions@github.com"
+            git add .github/elementor-versions.json
+            git diff --staged --quiet || git commit -m "Update test status for Elementor ${{ github.event.inputs.elementor_version }}"
+            git push || echo "No changes to push"
+          fi
+
+      - name: Post final summary to issue
+        if: github.event.inputs.issue_number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = '${{ needs.test-compatibility.result }}';
+            const version = '${{ github.event.inputs.elementor_version }}';
+
+            let summary;
+            if (result === 'success') {
+              summary = `## ✅ All Compatibility Tests Passed
+
+            Elementor CLI is compatible with Elementor ${version} and the tested previous versions.
+
+            **Next steps:**
+            - [ ] Review the test logs for any warnings
+            - [ ] Update the compatibility matrix in README.md
+            - [ ] Close this issue if everything looks good`;
+            } else {
+              summary = `## ❌ Compatibility Tests Failed
+
+            Some tests failed with Elementor ${version} or previous versions.
+
+            **Next steps:**
+            - [ ] Review the failed test logs above
+            - [ ] Identify breaking changes in Elementor
+            - [ ] Create fix PRs for compatibility issues
+            - [ ] Re-run tests after fixes are merged`;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt('${{ github.event.inputs.issue_number }}'),
+              body: summary
+            });

@@ -97,8 +97,17 @@ echo "Configuring WordPress settings..."
 wp option update permalink_structure '/%postname%/' --path=/var/www/html --allow-root
 wp option update blogdescription "E2E Test Environment" --path=/var/www/html --allow-root
 
-echo "Installing Elementor plugin..."
-if ! retry_command 3 5 "wp plugin install elementor --activate --path=/var/www/html --allow-root"; then
+# Determine Elementor version to install
+ELEMENTOR_VERSION="${ELEMENTOR_VERSION:-}"
+if [ -n "$ELEMENTOR_VERSION" ]; then
+  echo "Installing Elementor plugin version $ELEMENTOR_VERSION..."
+  ELEMENTOR_INSTALL_CMD="wp plugin install elementor --version=$ELEMENTOR_VERSION --activate --path=/var/www/html --allow-root"
+else
+  echo "Installing Elementor plugin (latest version)..."
+  ELEMENTOR_INSTALL_CMD="wp plugin install elementor --activate --path=/var/www/html --allow-root"
+fi
+
+if ! retry_command 3 5 "$ELEMENTOR_INSTALL_CMD"; then
   echo "ERROR: Failed to install Elementor plugin after retries"
   echo "Creating marker file to indicate failure..."
   echo '{"error": "Failed to install Elementor plugin"}' > /var/www/html/wp-content/test-pages.json
