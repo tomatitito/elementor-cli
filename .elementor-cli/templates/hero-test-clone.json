@@ -1,0 +1,82 @@
+{
+  "name": "hero-test-clone",
+  "slug": "hero-test-clone",
+  "description": "",
+  "source": "project",
+  "elements": [
+    {
+      "id": "2o27mai",
+      "elType": "container",
+      "settings": {
+        "content_width": "full",
+        "min_height": {
+          "size": 80,
+          "unit": "vh"
+        },
+        "flex_direction": "column",
+        "flex_justify_content": "center",
+        "flex_align_items": "center",
+        "background_background": "classic",
+        "background_color": "#f8f9fa",
+        "padding": {
+          "top": "60",
+          "right": "30",
+          "bottom": "60",
+          "left": "30",
+          "unit": "px"
+        }
+      },
+      "elements": [
+        {
+          "id": "7i5avk2",
+          "elType": "widget",
+          "widgetType": "heading",
+          "settings": {
+            "title": "Welcome to Your Site",
+            "header_size": "h1",
+            "align": "center",
+            "title_color": "#333333",
+            "typography_typography": "custom",
+            "typography_font_size": {
+              "size": 48,
+              "unit": "px"
+            }
+          },
+          "elements": []
+        },
+        {
+          "id": "iw6aqg9",
+          "elType": "widget",
+          "widgetType": "text-editor",
+          "settings": {
+            "editor": "<p style='text-align: center;'>Your compelling tagline or description goes here. Capture your visitors' attention with a brief, impactful message.</p>"
+          },
+          "elements": []
+        },
+        {
+          "id": "4ah0osu",
+          "elType": "widget",
+          "widgetType": "button",
+          "settings": {
+            "text": "Get Started",
+            "align": "center",
+            "button_type": "primary",
+            "background_color": "#007bff",
+            "button_text_color": "#ffffff",
+            "border_radius": {
+              "size": 4,
+              "unit": "px"
+            }
+          },
+          "elements": []
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "hide_title": "yes"
+  },
+  "sourcePageId": 6,
+  "created_at": "2026-02-02T21:20:45.636Z",
+  "updated_at": "2026-02-02T21:20:45.636Z"
+}

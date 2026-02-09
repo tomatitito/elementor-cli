@@ -1,11 +1,12 @@
+defaultSite: staging
 sites:
   staging:
     url: http://localhost:8080
     username: admin
-    appPassword: wYcFJgc89EWYszIBeTG5ErFL
+    appPassword: m2YYrP8Li5aQU6sUjwJDlZWQ
 staging:
   path: .elementor-cli/staging
   service: wordpress
   url: http://localhost:8080
+  wpCommand: wp
 pagesDir: .elementor-cli/pages
-defaultSite: staging
