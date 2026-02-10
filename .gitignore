@@ -9,6 +9,9 @@ dist/
 .elementor-cli/dumps/
 .elementor-cli/staging/
 
+# Ralph Loop output (AI tool)
+.ralph-loop-output/
+
 # Editor/IDE
 .vscode/
 .idea/
