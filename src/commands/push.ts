@@ -5,6 +5,7 @@ import { confirmAction } from "../utils/prompts.js";
 import { WordPressClient } from "../services/wordpress-client.js";
 import { LocalStore } from "../services/local-store.js";
 import { ElementorParser } from "../services/elementor-parser.js";
+import { RevisionManager } from "../services/revision-manager.js";
 
 export const pushCommand = new Command("push")
   .description("Upload local changes to WordPress")
@@ -13,6 +14,7 @@ export const pushCommand = new Command("push")
   .option("-a, --all", "Push all locally modified pages")
   .option("-f, --force", "Force push even if remote has changed")
   .option("-n, --dry-run", "Show what would be pushed without making changes")
+  .option("-u, --undo", "Undo the last push by restoring the previous revision")
   .addHelpText(
     "after",
     `
@@ -23,11 +25,14 @@ Examples:
   $ elementor-cli push 42 --force            Overwrite remote changes
   $ elementor-cli push 42 --dry-run          Preview changes
   $ elementor-cli push 42 --site production  Push to specific site
+  $ elementor-cli push 42 --undo             Undo last push for page
+  $ elementor-cli push 42 --undo --dry-run   Preview what undo would restore
 
 Safety features:
   - Compares timestamps to detect conflicts
   - Requires --force if remote has been modified
   - WordPress creates a revision before overwriting
+  - Use --undo to revert a push to the previous revision
 
 See also:
   elementor-cli pull           Download pages
@@ -56,6 +61,94 @@ See also:
       } else {
         logger.error("Please specify page ID(s) or use --all flag.");
         process.exit(1);
+      }
+
+      // Undo mode: restore pages to the revision created before the last push
+      if (options.undo) {
+        const manager = new RevisionManager(client);
+        let restored = 0;
+        let skipped = 0;
+
+        for (const pageId of pagesToPush) {
+          const spinner = logger.spinner(`Fetching revisions for page ${pageId}...`);
+
+          try {
+            const revisions = await manager.listRevisions(pageId);
+
+            // Find the most recent revision with Elementor data
+            const revision = revisions.find((rev) => rev.hasElementorData);
+            if (!revision) {
+              spinner.fail(`No revision with Elementor data found for page ${pageId}.`);
+              skipped++;
+              continue;
+            }
+
+            spinner.stop();
+            logger.info(
+              `Page ${pageId}: found revision ${revision.id} from ${formatDate(revision.date)}`
+            );
+
+            if (options.dryRun) {
+              // Show what the undo would restore
+              const currentPage = await client.getPage(pageId);
+              const currentData = parser.parseWPPage(currentPage);
+              const diff = parser.diffElements(
+                currentData.elementor_data,
+                revision.elementorData
+              );
+
+              if (diff.added.length || diff.removed.length || diff.modified.length) {
+                logger.dim(
+                  `  Would revert: +${diff.added.length} added, -${diff.removed.length} removed, ~${diff.modified.length} modified`
+                );
+              } else {
+                logger.dim(`  No differences between current and revision.`);
+              }
+
+              skipped++;
+              continue;
+            }
+
+            if (!options.force) {
+              const confirmed = await confirmAction(
+                `Restore page ${pageId} to revision ${revision.id}? Current remote content will be overwritten.`
+              );
+              if (!confirmed) {
+                logger.dim(`Skipped page ${pageId}`);
+                skipped++;
+                continue;
+              }
+            }
+
+            const restoreSpinner = logger.spinner(`Restoring page ${pageId} to revision ${revision.id}...`);
+
+            await manager.restoreRevision(pageId, revision.id);
+
+            // Update local store with the restored state
+            const restoredPage = await client.getPage(pageId);
+            const restoredData = parser.parseWPPage(restoredPage);
+            await store.savePage(siteName, restoredData);
+
+            restoreSpinner.succeed(
+              `Restored page ${pageId} to revision ${revision.id} (${formatDate(revision.date)})`
+            );
+            restored++;
+          } catch (error) {
+            spinner.fail(`Failed to undo push for page ${pageId}: ${error}`);
+          }
+        }
+
+        console.log("");
+        if (options.dryRun) {
+          logger.info(
+            `Dry run complete. ${pagesToPush.length} page(s) would be restored.`
+          );
+        } else {
+          logger.success(
+            `Restored ${restored} page(s)${skipped > 0 ? `, skipped ${skipped}` : ""}`
+          );
+        }
+        return;
       }
 
       let pushed = 0;

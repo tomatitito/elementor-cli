@@ -204,6 +204,60 @@ describe("E2E: pull/push/diff commands", () => {
       // Push shows a warning for non-existent local pages
       expect(output).toContain("not found locally");
     });
+
+    test("undo restores page to previous revision", async () => {
+      // Pull a page
+      await runCli(["pull", String(env.pages.simple), "--site", "test"]);
+
+      // Modify and push so a revision gets created
+      const elementsPath = join(
+        TEST_PAGES_DIR,
+        "pages",
+        "test",
+        String(env.pages.simple),
+        "elements.json"
+      );
+      const elements = await Bun.file(elementsPath).json();
+      if (elements[0]?.elements?.[0]?.settings) {
+        elements[0].elements[0].settings.title = "Undo Test " + Date.now();
+      }
+      await Bun.write(elementsPath, JSON.stringify(elements, null, 2));
+
+      await runCli([
+        "push",
+        String(env.pages.simple),
+        "--site",
+        "test",
+        "--force",
+      ]);
+
+      // Undo the push
+      const { output, exitCode } = await runCli([
+        "push",
+        String(env.pages.simple),
+        "--site",
+        "test",
+        "--undo",
+        "--force",
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(output).toContain("Restored");
+    });
+
+    test("undo dry-run previews without restoring", async () => {
+      const { output, exitCode } = await runCli([
+        "push",
+        String(env.pages.simple),
+        "--site",
+        "test",
+        "--undo",
+        "--dry-run",
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(output).toContain("Dry run complete");
+    });
   });
 
   describe("diff", () => {
