@@ -79,8 +79,7 @@ export class WordPressClient {
       meta: {
         _elementor_edit_mode: "builder",
         _elementor_data: data.elementorData || "[]",
-        // Serialize pageSettings to a JSON string to match WordPress expectations
-        _elementor_page_settings: JSON.stringify(data.pageSettings || {}),
+        _elementor_page_settings: data.pageSettings || {},
       },
     };
 
@@ -120,11 +119,9 @@ export class WordPressClient {
       }
       // Only send pageSettings if it has actual content
       // Sending empty {} causes WordPress to store it as a string which breaks Elementor
-      // Serialize pageSettings to a JSON string to avoid double-serialization
-      // WordPress expects _elementor_page_settings as a JSON string, not an object
       if (data.pageSettings && Object.keys(data.pageSettings).length > 0) {
-        (body.meta as Record<string, string>)._elementor_page_settings =
-          JSON.stringify(data.pageSettings);
+        (body.meta as Record<string, unknown>)._elementor_page_settings =
+          data.pageSettings;
       }
     }
 
