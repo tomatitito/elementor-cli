@@ -6,6 +6,7 @@ import { WordPressClient } from "../services/wordpress-client.js";
 import { LocalStore } from "../services/local-store.js";
 import { ElementorParser } from "../services/elementor-parser.js";
 import { RevisionManager } from "../services/revision-manager.js";
+import { ContainerCli } from "../services/container-cli.js";
 
 export const pushCommand = new Command("push")
   .description("Upload local changes to WordPress")
@@ -15,6 +16,7 @@ export const pushCommand = new Command("push")
   .option("-f, --force", "Force push even if remote has changed")
   .option("-n, --dry-run", "Show what would be pushed without making changes")
   .option("-u, --undo", "Undo the last push by restoring the previous revision")
+  .option("--no-flush", "Skip CSS cache invalidation after push")
   .addHelpText(
     "after",
     `
@@ -27,12 +29,18 @@ Examples:
   $ elementor-cli push 42 --site production  Push to specific site
   $ elementor-cli push 42 --undo             Undo last push for page
   $ elementor-cli push 42 --undo --dry-run   Preview what undo would restore
+  $ elementor-cli push 42 --no-flush         Push without CSS cache invalidation
 
 Safety features:
   - Compares timestamps to detect conflicts
   - Requires --force if remote has been modified
   - WordPress creates a revision before overwriting
   - Use --undo to revert a push to the previous revision
+
+Cache invalidation:
+  - Automatically invalidates Elementor CSS cache after push
+  - For container sites, also runs 'wp elementor flush-css'
+  - Use --no-flush to skip cache invalidation
 
 See also:
   elementor-cli pull           Download pages
@@ -154,6 +162,7 @@ See also:
       let pushed = 0;
       let skipped = 0;
       let conflicts = 0;
+      const pushedPageIds: number[] = [];
 
       for (const pageId of pagesToPush) {
         // Load local data
@@ -243,8 +252,37 @@ See also:
 
           spinner.succeed(`Pushed page ${pageId}: "${localData.meta.title}"`);
           pushed++;
+          pushedPageIds.push(pageId);
         } catch (error) {
           spinner.fail(`Failed to push page ${pageId}: ${error}`);
+        }
+      }
+
+      // Flush CSS cache for pushed pages
+      if (pushedPageIds.length > 0 && options.flush !== false) {
+        const flushSpinner = logger.spinner("Invalidating CSS cache...");
+
+        try {
+          // Invalidate CSS via REST API for each pushed page
+          for (const pageId of pushedPageIds) {
+            await client.invalidateCss(pageId);
+          }
+
+          // If site has container config, also run wp elementor flush-css
+          if (config.container) {
+            const containerCli = new ContainerCli(config.container);
+            await containerCli.flushElementorCss();
+            flushSpinner.succeed(
+              `Invalidated CSS cache (REST API + container flush)`
+            );
+          } else {
+            flushSpinner.succeed(`Invalidated CSS cache`);
+          }
+        } catch (error) {
+          flushSpinner.warn(`CSS cache invalidation failed: ${error}`);
+          logger.dim(
+            "  Changes were pushed but CSS may be stale. Run 'elementor-cli regenerate-css' manually."
+          );
         }
       }
 
