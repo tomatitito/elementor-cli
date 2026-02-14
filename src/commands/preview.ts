@@ -317,6 +317,7 @@ add_action('init', function() {
         '_elementor_data',
         '_elementor_page_settings',
         '_elementor_css',
+        '_elementor_element_cache',
     ];
     foreach ($meta_keys as $key) {
         register_post_meta('page', $key, [
@@ -326,6 +327,20 @@ add_action('init', function() {
         ]);
     }
 });
+
+/**
+ * Force enqueue all plugin CSS/JS assets on frontend
+ * Fixes issues with plugins like responsive-menu not loading CSS on staging
+ */
+add_action('wp_enqueue_scripts', function() {
+    // Ensure all enqueued styles are actually printed
+    global $wp_styles;
+    if (isset($wp_styles) && is_object($wp_styles)) {
+        foreach ($wp_styles->registered as $handle => $style) {
+            wp_enqueue_style($handle);
+        }
+    }
+}, 999);
 `;
           try {
             await docker.execBash(`test -f ${elementorRestPath}`);

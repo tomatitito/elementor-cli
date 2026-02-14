@@ -234,9 +234,14 @@ Make sure ~/.local/bin is in your PATH.
         // Set executable permissions
         await chmod(finalPath, 0o755);
 
-        // Cleanup tarball
+        // Cleanup tarball (errors are non-critical)
         const { unlink } = await import("node:fs/promises");
-        await unlink(tempTarPath).catch(() => {});
+        await unlink(tempTarPath).catch((err) => {
+          // Tarball cleanup failure is non-critical; OS will clean up eventually
+          if (process.env.DEBUG) {
+            console.error(`Failed to cleanup tarball ${tempTarPath}:`, err.message);
+          }
+        });
 
         downloadSpinner.succeed(`Installed to ${finalPath}`);
 

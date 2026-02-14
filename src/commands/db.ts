@@ -5,8 +5,7 @@ import { readConfig, getSiteConfig } from "../utils/config-store.js";
 import { logger, formatDate } from "../utils/logger.js";
 import { confirmAction } from "../utils/prompts.js";
 import { DockerManager } from "../services/docker-manager.js";
-
-const DUMPS_DIR = ".elementor-cli/dumps";
+import { DUMPS_DIR } from "../utils/constants.js";
 
 export const dbCommand = new Command("db").description(
   "Database backup and restore operations"

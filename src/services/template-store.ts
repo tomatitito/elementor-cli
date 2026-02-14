@@ -1,11 +1,7 @@
 import { mkdir } from "node:fs/promises";
-import { homedir } from "node:os";
 import { TemplateSchema, type Template, type TemplateSource, type TemplateFile } from "../types/template.js";
 import { templates as builtInTemplates, type PageTemplate } from "./template-library.js";
-
-// Support override via environment variable for testing
-const GLOBAL_TEMPLATES_DIR = process.env.ELEMENTOR_CLI_GLOBAL_TEMPLATES || `${homedir()}/.elementor-cli/templates`;
-const PROJECT_TEMPLATES_DIR = ".elementor-cli/templates";
+import { GLOBAL_TEMPLATES_DIR, PROJECT_TEMPLATES_DIR } from "../utils/constants.js";
 
 /**
  * Generate a slug from a template name

@@ -12,17 +12,28 @@ export interface DockerStatus {
   }>;
 }
 
+export type ContainerRuntime = "docker" | "podman";
+
 export class DockerManager {
   private composePath: string;
   private service: string;
   private url: string;
   private wpCommand: string;
+  private containerRuntime: ContainerRuntime;
 
   constructor(config: StagingConfig) {
     this.composePath = config.path;
     this.service = config.service;
     this.url = config.url;
     this.wpCommand = config.wpCommand || "wp";
+    this.containerRuntime = config.containerRuntime || "docker";
+  }
+
+  /**
+   * Get the container runtime command (docker or podman)
+   */
+  getContainerRuntime(): ContainerRuntime {
+    return this.containerRuntime;
   }
 
   static async create(composeFile?: string): Promise<DockerManager> {
@@ -64,7 +75,11 @@ export class DockerManager {
     options: { capture?: boolean } = {}
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn("docker", ["compose", ...args], {
+      // Use configured container runtime (docker or podman)
+      const composeArgs = this.containerRuntime === "podman"
+        ? ["compose", ...args]  // podman compose
+        : ["compose", ...args]; // docker compose
+      const proc = spawn(this.containerRuntime, composeArgs, {
         cwd: this.getComposeDir(),
         stdio: options.capture ? ["pipe", "pipe", "pipe"] : "inherit",
       });
@@ -82,14 +97,14 @@ export class DockerManager {
       }
 
       proc.on("error", (error) => {
-        reject(new Error(`Failed to run docker compose: ${error.message}`));
+        reject(new Error(`Failed to run ${this.containerRuntime} compose: ${error.message}`));
       });
 
       proc.on("close", (code) => {
         if (code === 0) {
           resolve(stdout.trim());
         } else {
-          reject(new Error(stderr || `docker compose exited with code ${code}`));
+          reject(new Error(stderr || `${this.containerRuntime} compose exited with code ${code}`));
         }
       });
     });
@@ -403,7 +418,7 @@ volumes:
     // Copy file into container and import
     await new Promise<void>((resolve, reject) => {
       const proc = spawn(
-        "docker",
+        this.containerRuntime,
         ["cp", tempFile, `${containerName}:/tmp/restore.sql`],
         { stdio: "inherit" }
       );
@@ -416,7 +431,7 @@ volumes:
     // Use mysql directly with --skip-ssl to avoid SSL errors with containerized MySQL
     await new Promise<void>((resolve, reject) => {
       const proc = spawn(
-        "docker",
+        this.containerRuntime,
         [
           "exec",
           containerName,
@@ -432,8 +447,13 @@ volumes:
       });
     });
 
-    // Cleanup temp file
+    // Cleanup temp file (errors are non-critical)
     const { unlink } = await import("node:fs/promises");
-    await unlink(tempFile).catch(() => {});
+    await unlink(tempFile).catch((err) => {
+      // Temp file cleanup failure is non-critical; OS will clean up eventually
+      if (process.env.DEBUG) {
+        console.error(`Failed to cleanup temp file ${tempFile}:`, err.message);
+      }
+    });
   }
 }

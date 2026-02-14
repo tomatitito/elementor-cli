@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_STAGING_DIR, DEFAULT_PAGES_DIR } from "../utils/constants.js";
 
 export const SiteConfigSchema = z.object({
   url: z.string().url(),
@@ -7,17 +8,18 @@ export const SiteConfigSchema = z.object({
 });
 
 export const StagingConfigSchema = z.object({
-  path: z.string().default(".elementor-cli/staging"),
+  path: z.string().default(DEFAULT_STAGING_DIR),
   service: z.string().default("wordpress"),
   url: z.string().default("http://localhost:8080"),
   wpCommand: z.string().default("wp"),
+  containerRuntime: z.enum(["docker", "podman"]).default("docker"),
 });
 
 export const ConfigSchema = z.object({
   defaultSite: z.string().optional(),
   sites: z.record(z.string(), SiteConfigSchema).default({}),
   staging: StagingConfigSchema.default({}),
-  pagesDir: z.string().default(".elementor-cli/pages"),
+  pagesDir: z.string().default(DEFAULT_PAGES_DIR),
 });
 
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;

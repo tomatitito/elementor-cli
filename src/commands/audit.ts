@@ -3,6 +3,11 @@ import chalk from "chalk";
 import { getSiteConfig, readConfig } from "../utils/config-store.js";
 import { logger } from "../utils/logger.js";
 import { WordPressClient } from "../services/wordpress-client.js";
+import {
+  extractUrlsWithLocation,
+  extractUrlsFromElements,
+  parseHost,
+} from "../utils/element-helpers.js";
 import type { ElementorElement } from "../types/elementor.js";
 
 interface AuditResult {
@@ -29,78 +34,6 @@ interface CssStatus {
   cssTimestamp?: string;
   dataTimestamp?: string;
   status?: string;
-}
-
-function extractUrls(data: unknown, path: string = ""): Array<{ location: string; url: string }> {
-  const urls: Array<{ location: string; url: string }> = [];
-
-  if (typeof data === "string") {
-    // Match URLs in strings
-    const urlRegex = /https?:\/\/[^\s"'<>]+/g;
-    const matches = data.match(urlRegex);
-    if (matches) {
-      for (const url of matches) {
-        urls.push({ location: path, url });
-      }
-    }
-  } else if (Array.isArray(data)) {
-    for (let i = 0; i < data.length; i++) {
-      urls.push(...extractUrls(data[i], `${path}[${i}]`));
-    }
-  } else if (data && typeof data === "object") {
-    for (const [key, value] of Object.entries(data)) {
-      urls.push(...extractUrls(value, path ? `${path}.${key}` : key));
-    }
-  }
-
-  return urls;
-}
-
-function buildElementPath(element: ElementorElement): string {
-  const type = element.elType;
-  const widgetType = element.widgetType;
-  if (widgetType) {
-    return `widget[${widgetType}]`;
-  }
-  return `${type}[${element.id.slice(0, 7)}]`;
-}
-
-function extractUrlsFromElements(
-  elements: ElementorElement[],
-  parentPath: string = ""
-): Array<{ location: string; url: string }> {
-  const urls: Array<{ location: string; url: string }> = [];
-
-  for (const element of elements) {
-    const elementPath = parentPath
-      ? `${parentPath} > ${buildElementPath(element)}`
-      : buildElementPath(element);
-
-    // Extract URLs from settings
-    const settingsUrls = extractUrls(element.settings, "");
-    for (const { location, url } of settingsUrls) {
-      urls.push({
-        location: location ? `${elementPath}.${location}` : elementPath,
-        url,
-      });
-    }
-
-    // Recurse into child elements
-    if (element.elements && element.elements.length > 0) {
-      urls.push(...extractUrlsFromElements(element.elements, elementPath));
-    }
-  }
-
-  return urls;
-}
-
-function parseHost(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return parsed.host;
-  } catch {
-    return "";
-  }
 }
 
 async function checkAssetAccessibility(
@@ -223,7 +156,7 @@ See also:
           // Ignore parse errors for settings
         }
       }
-      const settingsUrls = extractUrls(pageSettings, "page_settings");
+      const settingsUrls = extractUrlsWithLocation(pageSettings, "page_settings");
       allUrls.push(...settingsUrls);
 
       // Deduplicate URLs

@@ -129,7 +129,11 @@ async function processLocalPage(
 
     // Load the local page data
     const localData = await store.loadPage(siteName, pageId);
-    
+    if (!localData) {
+      logger.warn(`Page ${pageId} could not be loaded.`);
+      return null;
+    }
+
     // Count and replace in elements
     const elementsCount = searchReplaceInElements(
       localData.elements,
@@ -313,7 +317,7 @@ See also:
 
       // Handle local search-replace
       if (options.local) {
-        const store = new LocalStore();
+        const store = await LocalStore.create();
 
         if (options.allPages) {
           // Get all local pages for this site

@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { getSiteConfig } from "../utils/config-store.js";
 import { logger, formatDate } from "../utils/logger.js";
 import { WordPressClient } from "../services/wordpress-client.js";
+import { countElements, extractUrls, parseHost } from "../utils/element-helpers.js";
 import type { ElementorElement } from "../types/elementor.js";
 
 interface UrlCount {
@@ -33,48 +34,6 @@ interface StatusResult {
   };
   urls: UrlCount[];
   siteUrl: string;
-}
-
-function extractUrls(data: unknown): string[] {
-  const urls: string[] = [];
-
-  if (typeof data === "string") {
-    const urlRegex = /https?:\/\/[^\s"'<>]+/g;
-    const matches = data.match(urlRegex);
-    if (matches) {
-      urls.push(...matches);
-    }
-  } else if (Array.isArray(data)) {
-    for (const item of data) {
-      urls.push(...extractUrls(item));
-    }
-  } else if (data && typeof data === "object") {
-    for (const value of Object.values(data)) {
-      urls.push(...extractUrls(value));
-    }
-  }
-
-  return urls;
-}
-
-function countElements(elements: ElementorElement[]): number {
-  let count = 0;
-  for (const element of elements) {
-    count++;
-    if (element.elements && element.elements.length > 0) {
-      count += countElements(element.elements);
-    }
-  }
-  return count;
-}
-
-function parseHost(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return parsed.host;
-  } catch {
-    return "";
-  }
 }
 
 function formatRelativeTime(date: Date): string {

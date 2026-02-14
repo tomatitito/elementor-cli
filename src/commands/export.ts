@@ -4,8 +4,19 @@ import { WordPressClient } from "../services/wordpress-client.js";
 import { LocalStore } from "../services/local-store.js";
 import { ElementorParser } from "../services/elementor-parser.js";
 import { logger } from "../utils/logger.js";
-import { writeFile } from "node:fs/promises";
+import { countElements } from "../utils/element-helpers.js";
+import { writeFile, readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import type { ElementorElement, PageSettings } from "../types/elementor.js";
+
+async function getPackageVersion(): Promise<string> {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const packagePath = join(__dirname, "..", "..", "package.json");
+  const pkg = JSON.parse(await readFile(packagePath, "utf-8"));
+  return pkg.version;
+}
 
 interface ElementorTemplate {
   version: string;
@@ -141,6 +152,7 @@ See also:
         description = "raw elements";
       } else {
         // Export as Elementor template
+        const cliVersion = await getPackageVersion();
         const template: ElementorTemplate = {
           version: "0.4",
           title: title,
@@ -150,7 +162,7 @@ See also:
           metadata: {
             created: new Date().toISOString(),
             site: siteName,
-            elementor_cli_version: "0.2.2",
+            elementor_cli_version: cliVersion,
           },
         };
         exportData = JSON.stringify(template, null, 2);
@@ -182,13 +194,3 @@ See also:
     }
   });
 
-function countElements(elements: ElementorElement[]): number {
-  let count = 0;
-  for (const el of elements) {
-    count++;
-    if (el.elements && el.elements.length > 0) {
-      count += countElements(el.elements);
-    }
-  }
-  return count;
-}

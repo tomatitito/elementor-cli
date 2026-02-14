@@ -1,7 +1,6 @@
 import { parse, stringify } from "yaml";
 import { ConfigSchema, type Config, type SiteConfig } from "../types/config.js";
-
-const CONFIG_FILE = ".elementor-cli.yaml";
+import { CONFIG_FILE } from "./constants.js";
 
 export async function getConfigPath(): Promise<string> {
   // Support custom config path via environment variable (useful for testing)

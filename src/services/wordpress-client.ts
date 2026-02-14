@@ -79,7 +79,8 @@ export class WordPressClient {
       meta: {
         _elementor_edit_mode: "builder",
         _elementor_data: data.elementorData || "[]",
-        _elementor_page_settings: data.pageSettings || {},
+        // Serialize pageSettings to a JSON string to match WordPress expectations
+        _elementor_page_settings: JSON.stringify(data.pageSettings || {}),
       },
     };
 
@@ -119,9 +120,11 @@ export class WordPressClient {
       }
       // Only send pageSettings if it has actual content
       // Sending empty {} causes WordPress to store it as a string which breaks Elementor
+      // Serialize pageSettings to a JSON string to avoid double-serialization
+      // WordPress expects _elementor_page_settings as a JSON string, not an object
       if (data.pageSettings && Object.keys(data.pageSettings).length > 0) {
-        (body.meta as Record<string, unknown>)._elementor_page_settings =
-          data.pageSettings;
+        (body.meta as Record<string, string>)._elementor_page_settings =
+          JSON.stringify(data.pageSettings);
       }
     }
 
@@ -157,13 +160,14 @@ export class WordPressClient {
   }
 
   async invalidateCss(pageId: number): Promise<WPPage> {
-    // Invalidate Elementor CSS cache by setting _elementor_css meta to empty
-    // This forces Elementor to regenerate CSS on next page load
+    // Invalidate Elementor CSS cache and element cache by clearing meta values
+    // This forces Elementor to regenerate CSS and rebuild element cache on next page load
     return this.request<WPPage>(`/wp/v2/pages/${pageId}`, {
       method: "PUT",
       body: JSON.stringify({
         meta: {
           _elementor_css: "",
+          _elementor_element_cache: "",
         },
       }),
     });

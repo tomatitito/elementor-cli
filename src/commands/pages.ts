@@ -5,6 +5,7 @@ import { confirmAction } from "../utils/prompts.js";
 import { WordPressClient } from "../services/wordpress-client.js";
 import { listTemplates } from "../services/template-library.js";
 import { TemplateStore } from "../services/template-store.js";
+import { countElements } from "../utils/element-helpers.js";
 
 export const pagesCommand = new Command("pages").description(
   "List and manage pages"
@@ -312,18 +313,3 @@ See also:
     }
   });
 
-function countElements(elements: unknown[]): number {
-  let count = 0;
-  for (const el of elements) {
-    count++;
-    if (
-      typeof el === "object" &&
-      el !== null &&
-      "elements" in el &&
-      Array.isArray((el as { elements: unknown[] }).elements)
-    ) {
-      count += countElements((el as { elements: unknown[] }).elements);
-    }
-  }
-  return count;
-}
