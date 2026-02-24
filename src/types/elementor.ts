@@ -23,6 +23,7 @@ export interface PageData {
   template?: string; // WordPress page template (e.g., "elementor_canvas", "elementor_header_footer")
   elementor_data: ElementorElement[];
   page_settings: PageSettings;
+  elementor_version?: string; // Installed Elementor plugin version (e.g., "3.35.5")
   pulled_at?: string;
   remote_modified?: string;
 }

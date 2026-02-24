@@ -31,7 +31,7 @@ export class ElementorParser {
       }
     }
 
-    return {
+    const result: PageData = {
       id: wpPage.id,
       title: wpPage.title.raw || wpPage.title.rendered,
       slug: wpPage.slug,
@@ -42,6 +42,12 @@ export class ElementorParser {
       pulled_at: new Date().toISOString(),
       remote_modified: wpPage.modified,
     };
+
+    if (wpPage.meta._elementor_version) {
+      result.elementor_version = wpPage.meta._elementor_version;
+    }
+
+    return result;
   }
 
   /**

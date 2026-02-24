@@ -107,6 +107,7 @@ export class WordPressClient {
       template?: string;
       elementorData?: string;
       pageSettings?: Record<string, unknown>;
+      elementorVersion?: string;
     }
   ): Promise<WPPage> {
     const body: Record<string, unknown> = {};
@@ -116,7 +117,7 @@ export class WordPressClient {
     if (data.slug) body.slug = data.slug;
     if (data.template) body.template = data.template;
 
-    if (data.elementorData || data.pageSettings) {
+    if (data.elementorData || data.pageSettings || data.elementorVersion) {
       body.meta = {};
       if (data.elementorData) {
         (body.meta as Record<string, string>)._elementor_data =
@@ -127,6 +128,10 @@ export class WordPressClient {
       if (data.pageSettings && Object.keys(data.pageSettings).length > 0) {
         (body.meta as Record<string, unknown>)._elementor_page_settings =
           data.pageSettings;
+      }
+      if (data.elementorVersion) {
+        (body.meta as Record<string, string>)._elementor_version =
+          data.elementorVersion;
       }
     }
 

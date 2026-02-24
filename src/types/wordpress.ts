@@ -22,6 +22,7 @@ export interface WPPage {
     _elementor_data?: string;
     _elementor_page_settings?: string;
     _elementor_edit_mode?: string;
+    _elementor_version?: string;
     [key: string]: unknown;
   };
   template?: string; // WordPress page template (e.g., "elementor_canvas", "elementor_header_footer")
