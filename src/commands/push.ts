@@ -7,6 +7,46 @@ import { LocalStore } from "../services/local-store.js";
 import { ElementorParser } from "../services/elementor-parser.js";
 import { RevisionManager } from "../services/revision-manager.js";
 import { ContainerCli } from "../services/container-cli.js";
+import type { SiteConfig } from "../types/config.js";
+import type { PageData } from "../types/elementor.js";
+import type { LocalPageData } from "../services/local-store.js";
+
+/**
+ * Build the PageData to save locally after a successful push.
+ * Only `remote_modified` comes from the remote response;
+ * all other fields are preserved from local data.
+ */
+export function buildPostPushPageData(
+  localData: LocalPageData,
+  remoteModified: string
+): PageData {
+  return {
+    id: localData.page.id,
+    title: localData.meta.title,
+    slug: localData.meta.slug,
+    status: localData.meta.status,
+    template: localData.meta.template,
+    elementor_data: localData.elements,
+    page_settings: localData.settings,
+    remote_modified: remoteModified,
+  };
+}
+
+/**
+ * Determine if a revision should be created before pushing.
+ * Priority: CLI flags > site config > default (false)
+ */
+function shouldCreateRevision(
+  options: { revision?: boolean },
+  siteConfig: SiteConfig
+): boolean {
+  // CLI flags take precedence
+  if (options.revision === true) return true;
+  if (options.revision === false) return false;
+
+  // Fall back to site config
+  return siteConfig.createRevisions ?? false;
+}
 
 export const pushCommand = new Command("push")
   .description("Upload local changes to WordPress")
@@ -17,6 +57,8 @@ export const pushCommand = new Command("push")
   .option("-n, --dry-run", "Show what would be pushed without making changes")
   .option("-u, --undo", "Undo the last push by restoring the previous revision")
   .option("--no-flush", "Skip CSS cache invalidation after push")
+  .option("-r, --revision", "Create a revision before pushing")
+  .option("--no-revision", "Skip revision creation (overrides site config)")
   .addHelpText(
     "after",
     `
@@ -30,11 +72,25 @@ Examples:
   $ elementor-cli push 42 --undo             Undo last push for page
   $ elementor-cli push 42 --undo --dry-run   Preview what undo would restore
   $ elementor-cli push 42 --no-flush         Push without CSS cache invalidation
+  $ elementor-cli push 42 --revision         Push and create backup first
+  $ elementor-cli push 42 --no-revision      Push without backup
+
+Revision behavior:
+  --revision (-r)     Always create a backup before pushing
+  --no-revision       Never create a backup (overrides site config)
+  
+  Without flags, uses site config 'createRevisions' (default: false)
+
+  Configuration example:
+    sites:
+      staging:
+        createRevisions: false  # Fast iteration
+      production:
+        createRevisions: true   # Always backup
 
 Safety features:
   - Compares timestamps to detect conflicts
   - Requires --force if remote has been modified
-  - WordPress creates a revision before overwriting
   - Use --undo to revert a push to the previous revision
 
 Cache invalidation:
@@ -164,6 +220,25 @@ See also:
       let conflicts = 0;
       const pushedPageIds: number[] = [];
 
+      // Warn when pushing to production without revision creation
+      const createRevision = shouldCreateRevision(options, config);
+      if (
+        siteName.toLowerCase().includes("prod") &&
+        !createRevision &&
+        !options.dryRun
+      ) {
+        logger.warn(`Pushing to "${siteName}" without creating revisions.`);
+        if (!options.force) {
+          const confirmed = await confirmAction(
+            "Continue without backup? (Use --revision to create backups)"
+          );
+          if (!confirmed) {
+            logger.info("Cancelled.");
+            return;
+          }
+        }
+      }
+
       for (const pageId of pagesToPush) {
         // Load local data
         const localData = await store.loadPage(siteName, pageId);
@@ -204,6 +279,9 @@ See also:
             }
           }
 
+          // Determine if we should create a revision
+          const createRevision = shouldCreateRevision(options, config);
+
           if (options.dryRun) {
             spinner.stop();
             logger.info(`Would push page ${pageId}: "${localData.meta.title}"`);
@@ -223,8 +301,24 @@ See also:
               logger.dim(`  No element changes detected.`);
             }
 
+            if (createRevision) {
+              logger.dim(`  Would create backup revision before push`);
+            }
+
             skipped++;
             continue;
+          }
+
+          // Create backup revision before pushing if configured
+          if (createRevision) {
+            spinner.text = `Creating backup for page ${pageId}...`;
+            const manager = new RevisionManager(client);
+            const backupResult = await manager.createBackup(pageId);
+            if (backupResult.created) {
+              logger.dim(`  Created backup revision ${backupResult.revisionId}`);
+            } else {
+              logger.dim(`  No backup revision created (content unchanged)`);
+            }
           }
 
           spinner.text = `Pushing page ${pageId}...`;
@@ -237,18 +331,13 @@ See also:
             template: localData.meta.template,
             elementorData: parser.serializeElements(localData.elements),
             pageSettings: localData.settings,
+            elementorVersion: localData.page.elementor_version,
           });
 
           // Update local page data with current values and new remote timestamp
           const updatedPage = await client.getPage(pageId);
-          localData.page.remote_modified = updatedPage.modified;
-          localData.page.elementor_data = localData.elements;
-          localData.page.page_settings = localData.settings;
-          localData.page.title = localData.meta.title;
-          localData.page.slug = localData.meta.slug;
-          localData.page.status = localData.meta.status;
-          localData.page.template = localData.meta.template;
-          await store.savePage(siteName, localData.page);
+          const postPushData = buildPostPushPageData(localData, updatedPage.modified);
+          await store.savePage(siteName, postPushData);
 
           spinner.succeed(`Pushed page ${pageId}: "${localData.meta.title}"`);
           pushed++;

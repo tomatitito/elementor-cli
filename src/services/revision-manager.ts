@@ -56,7 +56,14 @@ export class RevisionManager {
     });
   }
 
-  async createBackup(pageId: number): Promise<void> {
+  async createBackup(
+    pageId: number
+  ): Promise<{ created: boolean; revisionId?: number }> {
+    // Get revision list BEFORE the update
+    const beforeRevisions = await this.client.getRevisions(pageId);
+    const beforeLatestId =
+      beforeRevisions.length > 0 ? beforeRevisions[0].id : null;
+
     // Fetch current page data
     const page = await this.client.getPage(pageId);
 
@@ -65,6 +72,17 @@ export class RevisionManager {
     await this.client.updatePage(pageId, {
       title: page.title.raw || page.title.rendered,
     });
+
+    // Get revision list AFTER the update
+    const afterRevisions = await this.client.getRevisions(pageId);
+    const afterLatestId =
+      afterRevisions.length > 0 ? afterRevisions[0].id : null;
+
+    // Compare to determine if a new revision was actually created
+    if (afterLatestId && afterLatestId !== beforeLatestId) {
+      return { created: true, revisionId: afterLatestId };
+    }
+    return { created: false };
   }
 
   diffWithCurrent(

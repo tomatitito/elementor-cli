@@ -314,9 +314,17 @@ See also:
 
       const spinner = logger.spinner("Creating backup...");
 
-      await manager.createBackup(id);
+      const result = await manager.createBackup(id);
 
-      spinner.succeed(`Created backup for page ${id}`);
+      if (result.created) {
+        spinner.succeed(
+          `Created backup for page ${id} (revision ${result.revisionId})`
+        );
+      } else {
+        spinner.warn(
+          "No revision created — page content is unchanged since last save"
+        );
+      }
       logger.dim(`Site: ${siteName}`);
 
       if (options.message) {
