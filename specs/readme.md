@@ -8,9 +8,15 @@ A CLI tool for managing Elementor pages programmatically. Download, edit, previe
 
 - **Pull/Push** - Download pages as JSON, edit locally, push changes back
 - **Local Preview** - Docker-based staging environment for testing changes
-- **Revisions** - View history and restore previous versions
+- **Revisions** - View history, restore previous versions, configurable auto-backup on push
 - **Database Backup** - Dump and restore WordPress database
 - **Diff** - Compare local changes with remote
+- **Search & Replace** - Find and replace text in remote database or local files
+- **CSS Cache Invalidation** - Auto-flush Elementor CSS after push (REST API + container WP-CLI)
+- **Container Support** - Docker and Podman runtime support
+- **Templates** - Save, import, preview, and reuse page templates
+- **Export** - Export pages as Elementor JSON templates or static HTML
+- **Studio** - Web UI for side-by-side page editing
 
 ---
 

@@ -70,7 +70,7 @@ When fetching a page with `context=edit`, Elementor data is in the `meta` object
 | Meta Field | Type | Description |
 |------------|------|-------------|
 | `_elementor_data` | JSON string | Element tree (array of elements) |
-| `_elementor_page_settings` | JSON string | Page-level settings |
+| `_elementor_page_settings` | object | Page-level settings (must be sent as object, not JSON string) |
 | `_elementor_edit_mode` | string | Set to `"builder"` for Elementor pages |
 
 ---
@@ -87,7 +87,7 @@ Content-Type: application/json
   "title": "Updated Title",
   "meta": {
     "_elementor_data": "[{\"id\":\"abc123\",\"elType\":\"container\",...}]",
-    "_elementor_page_settings": "{\"background_color\":\"#ffffff\"}"
+    "_elementor_page_settings": {"background_color": "#ffffff"}
   }
 }
 ```
@@ -95,8 +95,9 @@ Content-Type: application/json
 ### Important Notes
 
 1. `_elementor_data` must be a **JSON string** (double-encoded)
-2. Always include `_elementor_edit_mode: "builder"` for Elementor pages
-3. Use `context=edit` when fetching to get raw meta values
+2. `_elementor_page_settings` must be an **object** (not a JSON string) -- sending it as a JSON string will cause WordPress to reject or misinterpret the data
+3. Always include `_elementor_edit_mode: "builder"` for Elementor pages
+4. Use `context=edit` when fetching to get raw meta values
 
 ---
 

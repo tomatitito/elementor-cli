@@ -22,11 +22,18 @@ sites:
     url: https://my-friends-site.de
     username: admin
     appPassword: xxxx xxxx xxxx xxxx xxxx xxxx
+    # Auto-create revision before every push (default: false)
+    createRevisions: true
+    # Container running WordPress (for CSS cache flush via WP-CLI)
+    container:
+      runtime: docker    # "docker" or "podman"
+      name: my-wordpress-container
 
   staging-remote:
     url: https://staging.my-friends-site.de
     username: admin
     appPassword: yyyy yyyy yyyy yyyy yyyy yyyy
+    createRevisions: false  # Fast iteration on staging
 
 # Local staging environment configuration
 staging:
@@ -42,6 +49,9 @@ staging:
   # WP-CLI command (useful if wp is not in PATH or uses a different name)
   wpCommand: wp  # or "php wp-cli.phar" or path to wp-cli
 
+  # Container runtime for staging commands (default: "docker")
+  containerRuntime: docker  # "docker" or "podman"
+
 # Local pages storage directory
 pagesDir: .elementor-cli/pages
 ```
@@ -55,6 +65,17 @@ Each site requires:
 | `url` | Yes | WordPress site URL (must be HTTPS) |
 | `username` | Yes | WordPress admin username |
 | `appPassword` | Yes | Application Password (generate in WordPress admin) |
+| `createRevisions` | No | Auto-create revision before push (default: `false`) |
+| `container` | No | Container config for WP-CLI CSS flush (see below) |
+
+### Container Configuration (per-site)
+
+If a site runs inside a Docker/Podman container, configure `container` to enable WP-CLI-based CSS cache flushing after push:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `runtime` | Yes | Container runtime: `"docker"` or `"podman"` |
+| `name` | Yes | Container name or ID |
 
 ### Staging Configuration
 
@@ -64,6 +85,7 @@ Each site requires:
 | `service` | `wordpress` | WordPress service name in compose file (which container has WP-CLI) |
 | `url` | `http://localhost:8080` | Local staging URL |
 | `wpCommand` | `wp` | WP-CLI command to use (e.g., `php wp-cli.phar` if wp is not in PATH) |
+| `containerRuntime` | `docker` | Container runtime for staging commands: `"docker"` or `"podman"` |
 
 ### Generating Application Passwords
 

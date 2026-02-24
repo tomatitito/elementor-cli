@@ -132,6 +132,9 @@ Upload local changes to remote site.
 # Push a specific page
 elementor-cli push <page-id> [--site <name>]
 
+# Push multiple pages
+elementor-cli push 42 156
+
 # Push with conflict check (default)
 elementor-cli push <page-id>
 
@@ -143,13 +146,57 @@ elementor-cli push --all
 
 # Dry run - show what would change
 elementor-cli push <page-id> --dry-run
+
+# Create a backup revision before pushing
+elementor-cli push <page-id> --revision
+
+# Skip revision creation (overrides site config)
+elementor-cli push <page-id> --no-revision
+
+# Undo the last push by restoring the previous revision
+elementor-cli push <page-id> --undo
+
+# Preview what undo would restore
+elementor-cli push <page-id> --undo --dry-run
+
+# Skip CSS cache invalidation after push
+elementor-cli push <page-id> --no-flush
 ```
+
+### Revision Behavior
+
+Revision creation before push is configurable:
+
+| Priority | Source | Effect |
+|----------|--------|--------|
+| 1 (highest) | `--revision` flag | Always create backup |
+| 2 | `--no-revision` flag | Never create backup |
+| 3 (lowest) | Site config `createRevisions` | Per-site default (default: `false`) |
+
+```yaml
+# Example config for different environments
+sites:
+  staging:
+    createRevisions: false  # Fast iteration
+  production:
+    createRevisions: true   # Always backup
+```
+
+When pushing to a site whose name contains "prod" without revision creation enabled, the CLI will warn and prompt for confirmation.
 
 ### Safety Features
 
 1. Compare remote `modified_date` vs local `remote_modified`
 2. If remote is newer, warn and require `--force`
-3. Create revision before push (for rollback)
+3. Optionally create revision before push (configurable per-site or via flags)
+
+### CSS Cache Invalidation
+
+After a successful push, the CLI automatically:
+1. Invalidates CSS via the REST API for each pushed page
+2. If the site has a `container` config, also runs `wp elementor flush-css` inside the container
+
+Use `--no-flush` to skip this behavior.
 
 ---
 
@@ -421,20 +468,26 @@ Found 1 issue(s) + stale CSS
 
 ## `elementor-cli search-replace`
 
-Search and replace text in Elementor page data.
+Search and replace text in Elementor page data. Supports both remote (database) and local (file) modes.
 
 ```bash
-# Replace in a specific page
+# Replace in a specific page (remote)
 elementor-cli search-replace <search> <replace> -p <page-id>
 
 # Preview changes without applying (dry run)
 elementor-cli search-replace <search> <replace> -p <page-id> --dry-run
 
-# Apply to all Elementor pages
+# Apply to all Elementor pages (remote)
 elementor-cli search-replace <search> <replace> --all-pages
 
 # Output as JSON
 elementor-cli search-replace <search> <replace> -p <page-id> --json
+
+# Search and replace in local files instead of remote
+elementor-cli search-replace <search> <replace> -p <page-id> --local
+
+# Local mode with all pages
+elementor-cli search-replace <search> <replace> --all-pages --local --dry-run
 ```
 
 ### Use cases
@@ -443,12 +496,22 @@ elementor-cli search-replace <search> <replace> -p <page-id> --json
 - Update domain names when moving environments
 - Replace asset URLs with CDN URLs
 - Fix protocol (http to https)
+- Edit downloaded pages locally before pushing
+
+### Modes
+
+| Mode | Flag | Target | CSS invalidation |
+|------|------|--------|------------------|
+| Remote | (default) | WordPress database via REST API | Automatic |
+| Local | `--local` | Files in `.elementor-cli/pages/` | None (push separately) |
 
 ### Notes
 
-- Changes are made directly to the remote WordPress database
-- CSS cache is automatically invalidated after changes
+- By default, changes are made directly to the remote WordPress database
+- Use `--local` to edit downloaded pages in `.elementor-cli/pages/`
+- CSS cache is automatically invalidated after remote changes
 - Use `--dry-run` to preview changes before applying
+- After local changes, run `elementor-cli push` to upload
 
 **Example:**
 ```bash

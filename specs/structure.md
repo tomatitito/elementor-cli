@@ -12,7 +12,6 @@ elementor-cli/
 ├── tsconfig.json
 ├── biome.json
 ├── README.md
-├── IMPLEMENTATION_PLAN.md          # Development roadmap
 ├── specs/                          # This documentation
 │   ├── readme.md
 │   ├── commands.md
@@ -33,35 +32,51 @@ elementor-cli/
 │   │   ├── diff.ts                 # diff command
 │   │   ├── regenerate-css.ts       # CSS cache invalidation
 │   │   ├── audit.ts                # URL/asset verification
-│   │   ├── search-replace.ts       # URL migration tool
+│   │   ├── search-replace.ts       # Search/replace (remote + local)
 │   │   ├── status.ts               # CSS metadata analysis
 │   │   ├── studio.ts               # Web UI server
 │   │   ├── export.ts               # JSON template export
-│   │   └── export-html.ts          # Static HTML export
+│   │   ├── export-html.ts          # Static HTML export
+│   │   ├── templates.ts            # Template management
+│   │   └── update.ts               # Self-update
 │   ├── services/
 │   │   ├── wordpress-client.ts     # REST API client
-│   │   ├── wordpress-client.test.ts # Tests (colocated with source)
 │   │   ├── elementor-parser.ts     # JSON parsing/transformation
 │   │   ├── local-store.ts          # Local file operations
 │   │   ├── docker-manager.ts       # Docker compose operations
+│   │   ├── container-cli.ts        # Container runtime abstraction (Docker/Podman)
 │   │   ├── revision-manager.ts     # Revision operations
-│   │   ├── template-library.ts     # Page template management
-│   │   └── studio/                 # Studio web UI
-│   │       ├── server.ts           # HTTP server setup
-│   │       ├── api.ts              # API route handlers
-│   │       └── public/             # Static web assets
-│   │           ├── index.html
-│   │           ├── style.css
-│   │           └── app.js
+│   │   ├── template-library.ts     # Built-in template definitions
+│   │   ├── template-store.ts       # Template file storage (project + global)
+│   │   ├── template-preview.ts     # Template preview server
+│   │   └── html-converter.ts       # HTML to Elementor conversion
 │   ├── types/
 │   │   ├── index.ts                # Re-exports
 │   │   ├── elementor.ts            # Elementor element types
 │   │   ├── wordpress.ts            # WP REST API types
-│   │   └── config.ts               # Config schema types
+│   │   ├── config.ts               # Config schema types (Zod)
+│   │   └── template.ts             # Template types and schemas
 │   └── utils/
 │       ├── config-store.ts         # YAML config read/write
+│       ├── constants.ts            # Paths and directory constants
+│       ├── element-helpers.ts      # Elementor element utilities
 │       ├── logger.ts               # Colored output, spinners
 │       └── prompts.ts              # Interactive prompts
+├── tests/
+│   ├── unit/
+│   │   ├── wordpress-client.test.ts
+│   │   └── push-revision.test.ts
+│   └── e2e/
+│       ├── db.test.ts
+│       ├── pages.test.ts
+│       ├── pull-push-diff.test.ts
+│       ├── preview.test.ts
+│       ├── preview-docker.test.ts
+│       ├── revisions.test.ts
+│       └── templates.test.ts
+├── docs/                           # Feature documentation
+│   ├── css-cache-invalidation.md
+│   └── local-search-replace.md
 └── dist/                           # Build output
     └── elementor-cli               # Compiled executable
 ```
@@ -135,9 +150,12 @@ Business logic and external integrations:
 | `elementor-parser.ts` | Parse/transform Elementor JSON |
 | `local-store.ts` | Read/write page files locally |
 | `docker-manager.ts` | Docker compose commands |
-| `revision-manager.ts` | Revision fetching and restore |
-| `template-library.ts` | Page template management |
-| `studio/` | Web UI server and API handlers |
+| `container-cli.ts` | Container runtime abstraction (Docker/Podman) for WP-CLI |
+| `revision-manager.ts` | Revision fetching, restore, and backup creation |
+| `template-library.ts` | Built-in template definitions |
+| `template-store.ts` | Template file storage (project-local + global) |
+| `template-preview.ts` | Template preview HTTP server |
+| `html-converter.ts` | HTML to Elementor element conversion |
 
 ### Types
 
@@ -164,25 +182,51 @@ export interface PageData {
 }
 ```
 
-**src/types/config.ts:**
+**src/types/config.ts** (uses Zod schemas):
 ```typescript
+export interface ContainerConfig {
+  runtime: "docker" | "podman";
+  name: string;
+}
+
 export interface SiteConfig {
   url: string;
   username: string;
   appPassword: string;
+  container?: ContainerConfig;       // Container for WP-CLI (CSS flush)
+  createRevisions?: boolean;         // Auto-create revision before push (default: false)
 }
 
 export interface StagingConfig {
   path: string;
   service: string;
   url: string;
+  wpCommand: string;                 // WP-CLI command (default: "wp")
+  containerRuntime: "docker" | "podman";  // Container runtime (default: "docker")
 }
 
 export interface Config {
-  defaultSite: string;
+  defaultSite?: string;
   sites: Record<string, SiteConfig>;
   staging: StagingConfig;
   pagesDir: string;
+}
+```
+
+**src/types/template.ts:**
+```typescript
+export type TemplateSource = "built-in" | "global" | "project";
+
+export interface TemplateFile {
+  name: string;
+  slug: string;
+  description?: string;
+  source?: TemplateSource;
+  elements: ElementorElement[];
+  settings?: PageSettings;
+  sourcePageId?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 ```
 
@@ -193,6 +237,8 @@ Shared utilities:
 | Utility | Purpose |
 |---------|---------|
 | `config-store.ts` | Read/write `.elementor-cli.yaml` |
+| `constants.ts` | Path constants (`CLI_DIR`, `DEFAULT_PAGES_DIR`, etc.) |
+| `element-helpers.ts` | Elementor element tree utilities |
 | `logger.ts` | Colored console output, spinners |
 | `prompts.ts` | Interactive user prompts |
 
@@ -239,16 +285,34 @@ volumes:
 
 ## Tests
 
-Tests are colocated with source files:
+Tests are organized in a separate `tests/` directory:
 
 ```
-src/services/
-└── wordpress-client.test.ts  # Tests for wordpress-client.ts
+tests/
+├── unit/
+│   ├── wordpress-client.test.ts
+│   └── push-revision.test.ts
+└── e2e/
+    ├── db.test.ts
+    ├── pages.test.ts
+    ├── pull-push-diff.test.ts
+    ├── preview.test.ts
+    ├── preview-docker.test.ts
+    ├── revisions.test.ts
+    └── templates.test.ts
 ```
 
 Run tests with:
 ```bash
+# Unit tests
 bun test
+
+# E2E tests (requires Docker)
+bun test:e2e
+
+# E2E setup/teardown
+bun test:e2e:setup
+bun test:e2e:teardown
 ```
 
 ---
@@ -260,7 +324,7 @@ bun test
 ```json
 {
   "name": "elementor-cli",
-  "version": "0.2.2",
+  "version": "0.4.2",
   "type": "module",
   "bin": {
     "elementor-cli": "./dist/elementor-cli"
@@ -269,7 +333,10 @@ bun test
     "dev": "bun --watch run src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outfile dist/elementor-cli --target bun",
-    "test": "bun test",
+    "test": "bun test --ignore 'tests/e2e/**'",
+    "test:e2e": "bun test tests/e2e",
+    "test:e2e:setup": "cd tests/e2e && docker compose up -d",
+    "test:e2e:teardown": "cd tests/e2e && docker compose down -v",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
