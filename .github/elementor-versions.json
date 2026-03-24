@@ -1,11 +1,11 @@
 {
-  "current": "3.35.7",
-  "previous_1": "3.35.6",
-  "previous_2": "3.35.4",
-  "last_checked": "2026-03-12",
+  "current": "3.35.8",
+  "previous_1": "3.35.7",
+  "previous_2": "3.35.5",
+  "last_checked": "2026-03-24",
   "test_status": {
-    "3.35.7": "failing",
-    "3.35.6": "pending",
-    "3.35.4": "pending"
+    "3.35.8": "pending",
+    "3.35.7": "pending",
+    "3.35.5": "pending"
   }
 }
