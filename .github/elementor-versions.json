@@ -4,7 +4,7 @@
   "previous_2": "3.35.8",
   "last_checked": "2026-04-02",
   "test_status": {
-    "4.0.1": "pending",
+    "4.0.1": "failing",
     "3.35.9": "pending",
     "3.35.8": "pending"
   }
