@@ -332,14 +332,14 @@ tests/
 Run tests with:
 ```bash
 # Unit tests
-bun test
+bun run test
 
 # E2E tests (requires Docker)
-bun test:e2e
+bun run test:e2e
 
 # E2E setup/teardown
-bun test:e2e:setup
-bun test:e2e:teardown
+bun run test:e2e:setup
+bun run test:e2e:teardown
 ```
 
 ---
@@ -360,7 +360,7 @@ bun test:e2e:teardown
     "dev": "bun --watch run src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outfile dist/elementor-cli --target bun",
-    "test": "bun test --ignore 'tests/e2e/**'",
+    "test": "bun test tests/unit",
     "test:e2e": "bun test tests/e2e",
     "test:e2e:setup": "cd tests/e2e && docker compose up -d",
     "test:e2e:teardown": "cd tests/e2e && docker compose down -v",

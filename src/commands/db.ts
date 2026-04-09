@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { readConfig, getSiteConfig } from "../utils/config-store.js";
 import { logger, formatDate } from "../utils/logger.js";
 import { confirmAction } from "../utils/prompts.js";
@@ -93,28 +94,50 @@ See also:
       }
 
       // Determine output path
-      let outputPath: string;
-      if (options.output) {
-        outputPath = options.output;
-      } else {
-        const timestamp = new Date()
-          .toISOString()
-          .replace(/[:.]/g, "-")
-          .slice(0, 19);
-        await mkdir(`${process.cwd()}/${DUMPS_DIR}`, { recursive: true });
-        outputPath = `${DUMPS_DIR}/${siteName}-${timestamp}.sql`;
-      }
+      const { displayPath, writePath } = resolveDumpPaths({
+        output: options.output,
+        siteName,
+      });
+
+      await mkdir(dirname(writePath), { recursive: true });
 
       // Write dump to file
-      await Bun.write(`${process.cwd()}/${outputPath}`, sql);
+      await Bun.write(writePath, sql);
 
-      logger.success(`Database dump saved: ${outputPath}`);
+      logger.success(`Database dump saved: ${displayPath}`);
       logger.dim(`Size: ${formatBytes(sql.length)}`);
     } catch (error) {
       logger.error(`Failed to create dump: ${error}`);
       process.exit(1);
     }
   });
+
+export function resolveDumpPaths(options: {
+  output?: string;
+  siteName: string;
+  cwd?: string;
+  now?: Date;
+}): { displayPath: string; writePath: string } {
+  const cwd = options.cwd ?? process.cwd();
+
+  if (options.output) {
+    return {
+      displayPath: options.output,
+      writePath: resolve(cwd, options.output),
+    };
+  }
+
+  const timestamp = (options.now ?? new Date())
+    .toISOString()
+    .replace(/[:.]/g, "-")
+    .slice(0, 19);
+  const displayPath = `${DUMPS_DIR}/${options.siteName}-${timestamp}.sql`;
+
+  return {
+    displayPath,
+    writePath: resolve(cwd, displayPath),
+  };
+}
 
 async function runSshDump(
   sshConnection: string,

@@ -6,6 +6,63 @@ import { WordPressClient } from "../services/wordpress-client.js";
 import { listTemplates } from "../services/template-library.js";
 import { TemplateStore } from "../services/template-store.js";
 import { countElements } from "../utils/element-helpers.js";
+import type { SiteConfig } from "../types/config.js";
+
+type DeleteSpinner = {
+  succeed: (message: string) => void;
+  warn: (message: string) => void;
+  fail: (message: string) => void;
+  stop: () => void;
+};
+
+type DeletePageDeps = {
+  getSiteConfig: typeof getSiteConfig;
+  confirmAction: typeof confirmAction;
+  createClient: (config: SiteConfig) => WordPressClient;
+  spinner: (text: string) => DeleteSpinner;
+  info: typeof logger.info;
+};
+
+const defaultDeletePageDeps: DeletePageDeps = {
+  getSiteConfig,
+  confirmAction,
+  createClient: (config) => new WordPressClient(config),
+  spinner: (text) => logger.spinner(text),
+  info: logger.info,
+};
+
+export async function deletePageAction(
+  pageId: string,
+  options: { site?: string; force?: boolean },
+  deps: DeletePageDeps = defaultDeletePageDeps
+): Promise<void> {
+  const { name: siteName, config } = await deps.getSiteConfig(options.site);
+
+  if (!options.force) {
+    const confirmed = await deps.confirmAction(
+      `Move page ${pageId} from ${siteName} to trash?`
+    );
+    if (!confirmed) {
+      deps.info("Cancelled.");
+      return;
+    }
+  }
+
+  const spinner = deps.spinner(
+    options.force
+      ? `Permanently deleting page ${pageId}...`
+      : `Moving page ${pageId} to trash...`
+  );
+
+  const client = deps.createClient(config);
+  await client.deletePage(parseInt(pageId, 10), Boolean(options.force));
+
+  spinner.succeed(
+    options.force
+      ? `Permanently deleted page ${pageId}`
+      : `Moved page ${pageId} to trash`
+  );
+}
 
 export const pagesCommand = new Command("pages").description(
   "List and manage pages"
@@ -272,7 +329,7 @@ See also:
 // pages delete
 pagesCommand
   .command("delete <page-id>")
-  .description("Delete a page")
+  .description("Move a page to the trash or permanently delete it")
   .option("-s, --site <name>", "Site name from config")
   .option("-f, --force", "Skip confirmation and permanently delete")
   .addHelpText(
@@ -283,33 +340,17 @@ Examples:
   $ elementor-cli pages delete 42 --force
   $ elementor-cli pages delete 42 --site production
 
+Without --force, the page is moved to the trash.
+
 See also:
   elementor-cli pages list     List all pages
 `
   )
   .action(async (pageId, options) => {
     try {
-      const { name: siteName, config } = await getSiteConfig(options.site);
-
-      if (!options.force) {
-        const confirmed = await confirmAction(
-          `Delete page ${pageId} from ${siteName}? This cannot be undone.`
-        );
-        if (!confirmed) {
-          logger.info("Cancelled.");
-          return;
-        }
-      }
-
-      const spinner = logger.spinner(`Deleting page ${pageId}...`);
-
-      const client = new WordPressClient(config);
-      await client.deletePage(parseInt(pageId, 10), true);
-
-      spinner.succeed(`Deleted page ${pageId}`);
+      await deletePageAction(pageId, options);
     } catch (error) {
       logger.error(`Failed to delete page: ${error}`);
       process.exit(1);
     }
   });
-

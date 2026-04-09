@@ -110,6 +110,7 @@ sites:
       smokeUrls:
         - https://example.com/
       strategy: directory-rename
+    createRevisions: true   # Always backup before push
 
   recovery:
     url: http://localhost:8082
@@ -121,6 +122,12 @@ sites:
       service: wpcli
       mode: run
       runtime: docker
+
+  staging:
+    url: http://localhost:8080
+    username: admin
+    appPassword: "xxxx xxxx xxxx xxxx"
+    createRevisions: false  # Fast iteration (default)
 
 staging:
   path: .elementor-cli/staging
@@ -338,6 +345,22 @@ use an HTTPS vendor URL, a project-relative local artifact, or a Git repository 
 full commit and HTTPS artifact URL; every custom source requires `reviewed: true`
 and a lowercase SHA-256 hash. See [the command specification](specs/commands.md#elementor-cli-deps)
 for schemas, security constraints, JSON output, and exit codes.
+### Push Revision Behavior
+
+Control whether backups are created before pushing:
+
+```bash
+# Use site config setting (default: no revision)
+elementor-cli push 42
+
+# Force create revision before push
+elementor-cli push 42 --revision
+
+# Skip revision even if site config says to create one
+elementor-cli push 42 --no-revision
+```
+
+Set `createRevisions: true` on production sites to automatically backup before every push.
 
 ### Generating Application Passwords
 
