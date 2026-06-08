@@ -5,6 +5,18 @@ All notable changes to elementor-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-15
+
+### Added
+
+- **Configurable revision creation on push** - New `createRevisions` site config option to automatically create backups before pushing. Set to `true` for production sites, `false` (default) for fast iteration on staging. (#XX)
+- **Push revision flags** - Added `--revision` / `-r` and `--no-revision` flags to the `push` command to override site config on a per-push basis.
+- **Production safety warning** - When pushing to sites with "prod" in the name without revision creation, the CLI now warns and prompts for confirmation.
+
+### Changed
+
+- The `push` command help text now documents revision behavior and configuration examples.
+
 ## [0.4.1] - 2026-02-14
 
 ### Fixed

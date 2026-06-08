@@ -188,6 +188,7 @@ export const SiteConfigSchema = z
     container: ContainerConfigSchema.optional(),
     wpCli: WpCliConfigSchema.optional(),
     deploy: DeployConfigSchema.optional(),
+    createRevisions: z.boolean().optional().default(false),
   })
   .superRefine((site, context) => {
     if ((site.username === undefined) !== (site.appPassword === undefined)) {

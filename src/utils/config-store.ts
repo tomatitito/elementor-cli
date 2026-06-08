@@ -1,6 +1,15 @@
 import { parse, stringify } from "yaml";
-import { ConfigSchema, type Config, type SiteConfig } from "../types/config.js";
+import { ConfigSchema, SiteConfigSchema, type Config, type SiteConfig } from "../types/config.js";
 import { CONFIG_FILE } from "./constants.js";
+
+/** Input type for addSite - only requires core fields, rest get defaults */
+type SiteConfigInput = {
+  url: string;
+  username: string;
+  appPassword: string;
+  container?: SiteConfig["container"];
+  createRevisions?: boolean;
+};
 
 export async function getConfigPath(): Promise<string> {
   // Support custom config path via environment variable (useful for testing)
@@ -52,9 +61,10 @@ export async function getSiteConfig(siteName?: string): Promise<{ name: string; 
   return { name, config: siteConfig };
 }
 
-export async function addSite(name: string, site: SiteConfig): Promise<void> {
+export async function addSite(name: string, site: SiteConfigInput): Promise<void> {
   const config = await readConfig();
-  config.sites[name] = site;
+  // Parse through schema to apply defaults
+  config.sites[name] = SiteConfigSchema.parse(site);
   if (!config.defaultSite) {
     config.defaultSite = name;
   }
