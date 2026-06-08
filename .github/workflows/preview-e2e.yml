@@ -1,0 +1,64 @@
+name: Preview E2E Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/commands/preview.ts'
+      - 'src/services/docker-manager.ts'
+      - 'tests/e2e/preview-docker.test.ts'
+      - '.github/workflows/preview-e2e.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/commands/preview.ts'
+      - 'src/services/docker-manager.ts'
+      - 'tests/e2e/preview-docker.test.ts'
+      - '.github/workflows/preview-e2e.yml'
+
+jobs:
+  preview-e2e:
+    name: Preview Docker E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build CLI
+        run: bun run build
+
+      - name: Run Preview Docker E2E tests
+        run: bun test tests/e2e/preview-docker.test.ts
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker ps ==="
+          docker ps -a
+          echo ""
+          echo "=== Preview test WordPress logs ==="
+          docker logs elementor-cli-preview-test-wp || true
+          echo ""
+          echo "=== Preview test Database logs ==="
+          docker logs elementor-cli-preview-test-db || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Clean up test containers
+          docker compose -f tests/e2e/test-preview-env/docker-compose.yml down -v || true
+          docker rm -f elementor-cli-preview-test-wp elementor-cli-preview-test-db || true
+          docker volume rm elementor-cli-preview-test_wordpress_data elementor-cli-preview-test_db_data || true
