@@ -80,8 +80,8 @@ bun build src/index.ts --outfile dist/elementor-cli --target bun
 ### Running Tests
 
 ```bash
-# Run all tests
-bun test
+# Run all non-E2E tests
+bun run test
 
 # Run specific test file
 bun test tests/config-store.test.ts

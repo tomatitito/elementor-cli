@@ -169,8 +169,8 @@ bun run src/index.ts
 # Watch mode
 bun --watch run src/index.ts
 
-# Run tests
-bun test
+# Run non-E2E tests
+bun run test
 
 # Type check
 tsc --noEmit
