@@ -1,23 +1,24 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
+import pkg from "../package.json";
+import { auditCommand } from "./commands/audit.js";
 import { configCommand } from "./commands/config.js";
+import { dbCommand } from "./commands/db.js";
+import { depsCommand } from "./commands/deps.js";
+import { diffCommand } from "./commands/diff.js";
+import { exportHtmlCommand } from "./commands/export-html.js";
+import { exportCommand } from "./commands/export.js";
 import { pagesCommand } from "./commands/pages.js";
+import { previewCommand } from "./commands/preview.js";
 import { pullCommand } from "./commands/pull.js";
 import { pushCommand } from "./commands/push.js";
-import { diffCommand } from "./commands/diff.js";
-import { previewCommand } from "./commands/preview.js";
-import { dbCommand } from "./commands/db.js";
-import { revisionsCommand } from "./commands/revisions.js";
 import { regenerateCssCommand } from "./commands/regenerate-css.js";
-import { auditCommand } from "./commands/audit.js";
+import { revisionsCommand } from "./commands/revisions.js";
 import { searchReplaceCommand } from "./commands/search-replace.js";
 import { statusCommand } from "./commands/status.js";
 import { studioCommand } from "./commands/studio.js";
-import { exportCommand } from "./commands/export.js";
-import { exportHtmlCommand } from "./commands/export-html.js";
-import { updateCommand } from "./commands/update.js";
 import { templatesCommand } from "./commands/templates.js";
-import pkg from "../package.json";
+import { updateCommand } from "./commands/update.js";
 
 const program = new Command();
 
@@ -38,7 +39,7 @@ Examples:
   $ elementor-cli diff 42                        Compare local vs remote
 
 Documentation: https://github.com/YOUR_USERNAME/elementor-cli
-`
+`,
   );
 
 program.addCommand(configCommand);
@@ -58,5 +59,6 @@ program.addCommand(exportCommand);
 program.addCommand(exportHtmlCommand);
 program.addCommand(updateCommand);
 program.addCommand(templatesCommand);
+program.addCommand(depsCommand);
 
-program.parse();
+await program.parseAsync();

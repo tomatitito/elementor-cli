@@ -72,6 +72,7 @@ elementor-cli push 42
 | `preview init\|start\|stop\|sync\|open` | Local staging environment |
 | `db dump\|restore\|list` | Database backup/restore |
 | `revisions list\|show\|restore\|create` | Manage page history |
+| `deps inventory\|install\|check` | Inventory and reconcile WordPress packages |
 
 Use `--help` with any command for detailed options:
 
@@ -124,6 +125,63 @@ Compose supports Docker or Podman, custom Compose/environment files, an optional
 project name, and either one-shot `run --rm` or existing-service `exec` mode.
 See [the configuration reference](specs/configuration.md#wp-cli-transports) for
 the complete field and security details.
+
+## Dependency Manifests
+
+Dependency commands use the configured WP-CLI transport and always require an
+explicit site. Inventory is read-only and can be captured for review:
+
+```bash
+elementor-cli deps inventory --site production \
+  --output recovery/production-inventory.json
+```
+
+> **Inventory is only an observation.** It is not an allowlist, does not identify
+> trustworthy sources, and must not be renamed to `packages.json` without review.
+> Review every package, version, activation choice, and source before committing a
+> manifest.
+
+A version 1 `packages.json` pins WordPress core, locale, regular plugins, themes,
+activation state, and an explicit source:
+
+```json
+{
+  "schemaVersion": 1,
+  "core": { "version": "6.9.4", "locale": "de_DE", "updatePolicy": "minor" },
+  "plugins": [
+    {
+      "slug": "elementor",
+      "version": "4.2.3",
+      "active": true,
+      "source": { "type": "wordpress.org" }
+    }
+  ],
+  "themes": [
+    {
+      "slug": "hello-elementor",
+      "version": "3.4.9",
+      "active": true,
+      "source": { "type": "wordpress.org" }
+    }
+  ]
+}
+```
+
+Reconcile or check a recovery site:
+
+```bash
+elementor-cli deps install --site recovery --manifest recovery/packages.json --dry-run
+elementor-cli deps install --site recovery --manifest recovery/packages.json
+elementor-cli deps check --site recovery --manifest recovery/packages.json --strict --json
+```
+
+Install downloads the declared exact version, prints its plan first, and checks
+the result. It never copies packages from production and leaves unlisted packages
+in place unless `--prune` is explicitly supplied. Reviewed custom ZIP sources can
+use an HTTPS vendor URL, a project-relative local artifact, or a Git repository +
+full commit and HTTPS artifact URL; every custom source requires `reviewed: true`
+and a lowercase SHA-256 hash. See [the command specification](specs/commands.md#elementor-cli-deps)
+for schemas, security constraints, JSON output, and exit codes.
 
 ### Generating Application Passwords
 

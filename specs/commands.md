@@ -36,6 +36,105 @@ elementor-cli config test [name]
 
 ---
 
+## `elementor-cli deps`
+
+Observe and deterministically reconcile WordPress core, plugins, and themes via
+the site's reusable SSH or Compose WP-CLI transport. `--site` is deliberately
+required even when a default site exists.
+
+```bash
+# Read-only observation; JSON includes core/locale, PHP, regular plugins/themes,
+# activation and parent/child state, MU plugins, and drop-ins.
+elementor-cli deps inventory --site production \
+  --output recovery/production-inventory.json
+
+# Show or apply an exact reconciliation plan.
+elementor-cli deps install --site recovery \
+  --manifest recovery/packages.json --dry-run
+elementor-cli deps install --site recovery \
+  --manifest recovery/packages.json
+
+# Explain all drift. --strict also reports unlisted regular plugins/themes.
+elementor-cli deps check --site recovery \
+  --manifest recovery/packages.json --strict --json
+```
+
+### Inventory review warning
+
+Inventory output has `trust: "observation-only"`. It is not a manifest, allowlist,
+source attestation, or security audit. It contains no configured credentials and
+does not infer that files found on production are safe. Review package identity,
+version, activation, and a fresh trusted source before creating `packages.json`.
+MU plugins and drop-ins are clearly reported but are not automatically managed.
+
+### `packages.json` version 1
+
+All objects are strict and validated with Zod. Slugs and versions must be exact;
+`latest`, ranges, duplicate slugs, unknown schema versions/fields, and non-empty
+theme lists without exactly one active theme are rejected.
+
+```json
+{
+  "schemaVersion": 1,
+  "core": {
+    "version": "6.9.4",
+    "locale": "de_DE",
+    "updatePolicy": "minor"
+  },
+  "plugins": [
+    {
+      "slug": "elementor",
+      "version": "4.2.3",
+      "active": true,
+      "source": { "type": "wordpress.org" }
+    },
+    {
+      "slug": "vendor-plugin",
+      "version": "1.2.0",
+      "active": false,
+      "source": {
+        "type": "vendor-url",
+        "url": "https://vendor.example/plugin.zip",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reviewed": true
+      }
+    }
+  ],
+  "themes": []
+}
+```
+
+Sources are one of:
+
+- `{ "type": "wordpress.org" }`
+- `vendor-url`: credential-free HTTPS URL, SHA-256, and `reviewed: true`
+- `local-artifact`: project-relative ZIP path, SHA-256, and `reviewed: true`
+- `git`: credential-free HTTPS repository, full 40-character reviewed commit,
+  credential-free HTTPS artifact URL, SHA-256, and `reviewed: true`
+
+Custom ZIPs are downloaded/read fresh, limited to 200 MiB, hash-checked locally,
+streamed through the #66 transport, and hash-checked again on the WordPress host
+before installation. Git metadata does not make a moving branch trusted: both the
+full reviewed revision and immutable reviewed artifact hash are required. URLs
+with credentials, query strings, fragments, or non-HTTPS schemes are rejected.
+
+### Reconciliation and exits
+
+Install prints its complete plan before changes, uses exact official versions or
+the declared reviewed artifact, fails if that version/artifact is unavailable,
+and runs the same check after applying the plan. A matching rerun is a no-op.
+Unlisted regular packages are retained by default; `--prune` is the only mode
+that removes them. No command copies package files from another site.
+
+Human and `--json` output identify each mismatch with package, field, expected,
+and actual values. Output excludes REST/SSH/Compose credentials and custom source
+locations. Exit codes are stable: `0` match, `1` drift/install failure (including
+a dry-run with a non-empty plan), and `2` invalid config/manifest, connection, or
+operational error. This is alignment checking, not deep integrity analysis; that
+belongs to a future `deps audit` command.
+
+---
+
 ## `elementor-cli pages`
 
 List and manage pages.
