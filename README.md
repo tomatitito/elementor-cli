@@ -93,6 +93,21 @@ sites:
     url: https://my-site.com
     username: admin
     appPassword: "xxxx xxxx xxxx xxxx"
+    wpCli:
+      type: ssh
+      host: deploy@example.com
+      path: /var/www/example/current
+
+  recovery:
+    url: http://localhost:8082
+    wpCli:
+      type: compose
+      composeFile: docker/docker-compose.recovery.yml
+      envFile: recovery/.env
+      projectName: example-recovery
+      service: wpcli
+      mode: run
+      runtime: docker
 
 staging:
   path: .elementor-cli/staging
@@ -101,6 +116,14 @@ staging:
 
 pagesDir: .elementor-cli/pages
 ```
+
+Sites may configure REST credentials, `wpCli`, or both. SSH transports run `wp`
+at the configured absolute WordPress path and enforce SSH host-key verification.
+Compose paths are resolved from the project root and must remain within it.
+Compose supports Docker or Podman, custom Compose/environment files, an optional
+project name, and either one-shot `run --rm` or existing-service `exec` mode.
+See [the configuration reference](specs/configuration.md#wp-cli-transports) for
+the complete field and security details.
 
 ### Generating Application Passwords
 

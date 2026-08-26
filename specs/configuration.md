@@ -28,12 +28,29 @@ sites:
     container:
       runtime: docker    # "docker" or "podman"
       name: my-wordpress-container
+    # Optional reusable WP-CLI access over SSH
+    wpCli:
+      type: ssh
+      host: deploy@my-friends-site.de
+      path: /var/www/my-friends-site/current
 
   staging-remote:
     url: https://staging.my-friends-site.de
     username: admin
     appPassword: yyyy yyyy yyyy yyyy yyyy yyyy
     createRevisions: false  # Fast iteration on staging
+
+  recovery:
+    url: http://localhost:8082
+    # REST credentials are optional for a WP-CLI-only site
+    wpCli:
+      type: compose
+      composeFile: docker/docker-compose.recovery.yml
+      envFile: recovery/.env
+      projectName: example-recovery
+      service: wpcli
+      mode: run
+      runtime: docker
 
 # Local staging environment configuration
 staging:
@@ -58,15 +75,72 @@ pagesDir: .elementor-cli/pages
 
 ### Site Configuration
 
-Each site requires:
+Each site requires a `url` plus REST credentials, a WP-CLI transport, or both:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `url` | Yes | WordPress site URL (must be HTTPS) |
-| `username` | Yes | WordPress admin username |
-| `appPassword` | Yes | Application Password (generate in WordPress admin) |
+| `url` | Yes | WordPress site URL (use HTTPS outside local development) |
+| `username` | For REST | WordPress admin username; configure with `appPassword` |
+| `appPassword` | For REST | Application Password (generate in WordPress admin); configure with `username` |
 | `createRevisions` | No | Auto-create revision before push (default: `false`) |
 | `container` | No | Container config for WP-CLI CSS flush (see below) |
+| `wpCli` | No | Reusable SSH or Compose WP-CLI transport (see below) |
+
+### WP-CLI Transports
+
+The optional `wpCli` block provides reusable WP-CLI access independently of
+the staging-specific `DockerManager`. Commands built on this transport receive
+stdout, stderr, and the process exit code separately and can stream input (for
+example, SQL) over stdin. WP-CLI plugins and themes are skipped by default;
+callers that require either can explicitly enable loading it.
+
+#### SSH
+
+```yaml
+wpCli:
+  type: ssh
+  host: deploy@example.com
+  path: /var/www/example/current
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | Yes | Must be `ssh` |
+| `host` | Yes | SSH host or `user@host`; shell characters and option-like values are rejected |
+| `path` | Yes | Absolute WordPress installation path on the remote host |
+
+SSH uses the local OpenSSH configuration and known-hosts database with
+`StrictHostKeyChecking=yes`. Add the server's verified key to `known_hosts`
+before use; the transport never disables host-key checking. Authentication
+material remains managed by SSH and is not placed in command arguments or
+configuration by this transport.
+
+#### Docker/Podman Compose
+
+```yaml
+wpCli:
+  type: compose
+  composeFile: docker/docker-compose.recovery.yml
+  envFile: recovery/.env
+  projectName: example-recovery
+  service: wpcli
+  mode: run
+  runtime: docker
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | Yes | Must be `compose` |
+| `composeFile` | Yes | Compose file, resolved from the project root |
+| `envFile` | No | Compose environment file, resolved from the project root |
+| `projectName` | No | Compose project name (`a-z`, digits, `_`, and `-`) |
+| `service` | Yes | Compose service containing `wp` |
+| `mode` | Yes | `run` for a one-shot `run --rm`, or `exec` for a running service |
+| `runtime` | No | `docker` (default) or `podman` |
+
+Compose and environment files must exist within the project root (including
+after resolving symbolic links). Arguments are passed as process argument
+arrays, and environment-file contents are never included in errors or logs.
 
 ### Container Configuration (per-site)
 

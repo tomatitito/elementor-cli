@@ -6,6 +6,11 @@ export class WordPressClient {
   private authHeader: string;
 
   constructor(config: SiteConfig) {
+    if (!config.username || !config.appPassword) {
+      throw new Error(
+        "This command requires REST credentials (username and appPassword) for the selected site."
+      );
+    }
     this.baseUrl = config.url.replace(/\/$/, "");
     const credentials = btoa(`${config.username}:${config.appPassword}`);
     this.authHeader = `Basic ${credentials}`;
