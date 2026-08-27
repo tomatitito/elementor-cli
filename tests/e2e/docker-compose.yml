@@ -2,7 +2,7 @@ name: elementor-cli-test
 
 services:
   wordpress:
-    image: wordpress:6.7-php8.2
+    image: wordpress:7.1.0-php8.2
     container_name: elementor-cli-test-wp
     ports:
       - "8888:80"
