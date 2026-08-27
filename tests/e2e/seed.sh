@@ -127,6 +127,14 @@ else
   echo "Warning: Could not create application password (may already exist)"
 fi
 
+echo "Creating seeded users for user-list tests..."
+wp user get recovery-editor --field=ID --path=/var/www/html --allow-root >/dev/null 2>&1 || \
+  wp user create recovery-editor recovery-editor@example.com \
+    --role=editor --path=/var/www/html --allow-root >/dev/null
+wp user get recovery-subscriber --field=ID --path=/var/www/html --allow-root >/dev/null 2>&1 || \
+  wp user create recovery-subscriber recovery-subscriber@example.com \
+    --role=subscriber --path=/var/www/html --allow-root >/dev/null
+
 echo "Creating test pages with Elementor content..."
 
 # Test Page 1: Simple heading page

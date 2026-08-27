@@ -19,6 +19,7 @@ import { statusCommand } from "./commands/status.js";
 import { studioCommand } from "./commands/studio.js";
 import { templatesCommand } from "./commands/templates.js";
 import { updateCommand } from "./commands/update.js";
+import { usersCommand } from "./commands/users.js";
 
 const program = new Command();
 
@@ -61,5 +62,6 @@ program.addCommand(exportHtmlCommand);
 program.addCommand(updateCommand);
 program.addCommand(templatesCommand);
 program.addCommand(depsCommand);
+program.addCommand(usersCommand);
 
 await program.parseAsync();

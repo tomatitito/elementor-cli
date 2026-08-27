@@ -36,6 +36,68 @@ elementor-cli config test [name]
 
 ---
 
+## `elementor-cli users`
+
+Read a minimal user inventory through the explicit site's reusable SSH or Compose
+WP-CLI transport. There is no fallback to the default site and no REST fallback.
+
+```bash
+elementor-cli users list --site production
+elementor-cli users list --site production --role administrator
+elementor-cli users list --site recovery --json
+elementor-cli users list --site production --include-email
+elementor-cli users list --site production --json --output recovery/users.json
+```
+
+`--site <name>` is required. `--role <role>` accepts a WordPress role slug made of
+lowercase letters, numbers, underscores, and hyphens. `--include-email` is the
+only way to request or emit `user_email`. `--output <path>` always writes the same
+stable JSON report, with mode `0600`; it can be combined with `--json` to also
+print the report.
+
+The WP-CLI invocation is read-only and fixed to `user list`, JSON format,
+ascending ID ordering, and these fields:
+
+- default: `ID,user_login,roles,user_registered`
+- with `--include-email`: `ID,user_login,roles,user_registered,user_email`
+
+The transport supplies `--skip-plugins --skip-themes`. There is intentionally no
+passthrough field, query, format, order, or metadata option. Password hashes,
+activation/reset keys, capabilities, session tokens, application-password data,
+arbitrary metadata, and credentials are neither requested nor copied. Parsing is
+strict: the top level must be an array, every row must have exactly the requested
+fields, IDs must be positive safe integers, and control or bidirectional terminal
+characters are rejected. Unexpected fields fail the operation rather than being
+silently retained or redacted.
+
+Human output is sorted by numeric ID and contains `ID`, `Username`, `Roles`, and
+`Registered`, plus `Email` only after explicit opt-in. Roles are normalized and
+sorted. JSON uses this schema and key order:
+
+```json
+{
+  "schemaVersion": 1,
+  "site": "production",
+  "collectedAt": "2026-08-27T12:00:00.000Z",
+  "users": [
+    {
+      "id": 1,
+      "username": "site-admin",
+      "roles": ["administrator"],
+      "registeredAt": "2021-02-05 10:30:00"
+    }
+  ]
+}
+```
+
+A successful empty result exits `0` and produces `users: []` or the explicit
+human message `No users found.` Configuration, transport/connection, malformed or
+unsafe upstream output, and local output-file failures exit `2`. Operational
+errors never include upstream stdout/stderr, command arguments, transport
+credentials, or field values.
+
+---
+
 ## `elementor-cli deps`
 
 Observe and deterministically reconcile WordPress core, plugins, and themes via

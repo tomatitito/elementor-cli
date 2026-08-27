@@ -73,6 +73,7 @@ elementor-cli push 42
 | `db dump\|restore\|list` | Database backup/restore |
 | `revisions list\|show\|restore\|create` | Manage page history |
 | `deps inventory\|check\|update\|verify\|install` | Review, select, and reconcile WordPress packages |
+| `users list --site <name>` | Safely list users through WP-CLI |
 
 Use `--help` with any command for detailed options:
 
@@ -125,6 +126,34 @@ Compose supports Docker or Podman, custom Compose/environment files, an optional
 project name, and either one-shot `run --rm` or existing-service `exec` mode.
 See [the configuration reference](specs/configuration.md#wp-cli-transports) for
 the complete field and security details.
+
+## Safe User Listing
+
+User inventory always requires an explicit site and uses that site's configured
+SSH or Compose WP-CLI transport:
+
+```bash
+elementor-cli users list --site production
+elementor-cli users list --site production --role administrator
+elementor-cli users list --site recovery --json
+elementor-cli users list --site production --include-email
+elementor-cli users list --site production --json --output users.json
+```
+
+Default human and JSON output contain only numeric ID, login, sorted roles, and
+the WordPress registration timestamp. Email is personal data and is added only by
+`--include-email`. The command has no field-selection option: its WP-CLI request
+uses a fixed allowlist, skips regular plugins and themes, and rejects malformed or
+unexpected response fields. It never requests or emits password hashes,
+activation/reset keys, sessions, application passwords, arbitrary user metadata,
+or configured connection credentials.
+
+Results are sorted by numeric ID. JSON is schema version 1 and has stable keys:
+`schemaVersion`, `site`, `collectedAt`, and `users`. `--output` writes this JSON
+with private file permissions; it does not imply `--include-email`. A successful
+empty list exits `0` and contains `users: []` (or `No users found.` in human
+output). Configuration, connection, unsafe-response, and file errors exit `2`
+with secret-free diagnostics.
 
 ## Dependency Manifests
 
