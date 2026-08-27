@@ -25,6 +25,7 @@ const program = new Command();
 program
   .name("elementor-cli")
   .description("Manage Elementor pages from the command line")
+  .enablePositionalOptions()
   .version(pkg.version)
   .addHelpText(
     "after",

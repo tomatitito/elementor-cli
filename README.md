@@ -72,7 +72,7 @@ elementor-cli push 42
 | `preview init\|start\|stop\|sync\|open` | Local staging environment |
 | `db dump\|restore\|list` | Database backup/restore |
 | `revisions list\|show\|restore\|create` | Manage page history |
-| `deps inventory\|install\|check` | Inventory and reconcile WordPress packages |
+| `deps inventory\|check\|update\|verify\|install` | Review, select, and reconcile WordPress packages |
 
 Use `--help` with any command for detailed options:
 
@@ -167,15 +167,48 @@ activation state, and an explicit source:
 }
 ```
 
-Reconcile or check a recovery site:
+Use a two-phase update workflow: first review trusted release metadata and update
+only `packages.json`, then explicitly install that desired state into WordPress:
 
 ```bash
+# Read-only checks (aggregate or category-specific)
+elementor-cli deps check --site recovery --manifest recovery/packages.json
+elementor-cli deps core check --site recovery --manifest recovery/packages.json
+elementor-cli deps themes check --site recovery --manifest recovery/packages.json
+elementor-cli deps plugins check --site recovery --manifest recovery/packages.json
+
+# Preview policy-selected changes; no manifest or WordPress mutation
+elementor-cli deps update --all --manifest recovery/packages.json
+
+# Explicitly write all managed policy-eligible versions to the manifest only
+elementor-cli deps update --all --manifest recovery/packages.json --write
+elementor-cli deps themes update --all --manifest recovery/packages.json --write
+elementor-cli deps plugins update elementor --version 4.2.3 \
+  --manifest recovery/packages.json
+elementor-cli deps core update --minor --manifest recovery/packages.json --write
+
+# Only install mutates WordPress
 elementor-cli deps install --site recovery --manifest recovery/packages.json --dry-run
 elementor-cli deps install --site recovery --manifest recovery/packages.json
-elementor-cli deps check --site recovery --manifest recovery/packages.json --strict --json
+elementor-cli deps verify --site recovery --manifest recovery/packages.json --strict --json
 ```
 
-Install downloads the declared exact version, prints its plan first, and checks
+`check` commands require a site and report installed, desired, available, policy,
+source, and state. Category and aggregate `update` commands never contact or
+mutate WordPress unless optional `--site` context is requested; even then it is
+inventory-only. Bulk updates include only manifest-managed dependencies. Custom
+and vendor packages without trusted update metadata remain unchanged with status
+`unknown`; only entries explicitly sourced from WordPress.org use its APIs.
+Automatic writes require `--write` or interactive confirmation; `--version` is
+itself explicit write intent. Non-interactive calls without that intent are safe
+previews and never prompt.
+
+Each core, plugin, or theme entry may set `updatePolicy` to `exact`, `patch`,
+`minor`, or `major` (`exact` is the safe default). Policy selection does not move
+a stable version onto a prerelease or silently cross a configured boundary.
+Prerelease strings and the core locale are preserved exactly.
+
+Install downloads the manifest's declared exact version, prints its plan first, and checks
 the result. It never copies packages from production and leaves unlisted packages
 in place unless `--prune` is explicitly supplied. Reviewed custom ZIP sources can
 use an HTTPS vendor URL, a project-relative local artifact, or a Git repository +

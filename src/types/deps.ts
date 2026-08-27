@@ -92,6 +92,7 @@ const packageEntry = z
     version,
     active: z.boolean(),
     source: PackageSourceSchema,
+    updatePolicy: z.enum(["exact", "patch", "minor", "major"]).optional(),
   })
   .strict();
 
@@ -144,6 +145,7 @@ export const PackagesManifestSchema = z
 export type PackageSource = z.infer<typeof PackageSourceSchema>;
 export type PackageManifestEntry = z.infer<typeof packageEntry>;
 export type PackagesManifest = z.infer<typeof PackagesManifestSchema>;
+export type UpdatePolicy = "exact" | "patch" | "minor" | "major";
 
 export interface ObservedPlugin {
   slug: string;

@@ -54,10 +54,58 @@ elementor-cli deps install --site recovery \
 elementor-cli deps install --site recovery \
   --manifest recovery/packages.json
 
-# Explain all drift. --strict also reports unlisted regular plugins/themes.
-elementor-cli deps check --site recovery \
+# Verify exact installed-state drift. --strict also reports unlisted packages.
+elementor-cli deps verify --site recovery \
   --manifest recovery/packages.json --strict --json
+
+# Read-only release discovery, composed across all categories.
+elementor-cli deps check --site recovery --manifest recovery/packages.json
+elementor-cli deps core check --site recovery --manifest recovery/packages.json
+elementor-cli deps themes check --site recovery --manifest recovery/packages.json
+elementor-cli deps plugins check --site recovery --manifest recovery/packages.json
+
+# Phase 1: preview, then atomically update only packages.json.
+elementor-cli deps update --all --manifest recovery/packages.json
+elementor-cli deps update --all --manifest recovery/packages.json --write
+elementor-cli deps themes update --all --manifest recovery/packages.json --write
+elementor-cli deps plugins update elementor --version 4.2.3 \
+  --manifest recovery/packages.json
+
+# Phase 2: this is the only dependency command that mutates WordPress.
+elementor-cli deps install --site recovery --manifest recovery/packages.json
 ```
+
+### Release checks and manifest updates
+
+`core`, `themes`, and `plugins` each expose `check` and `update`; aggregate
+`deps check` and `deps update --all` compose those same category operations.
+Checks collect read-only inventory and query trusted release metadata. Human and
+schema-versioned JSON output deterministically report every dependency's current
+(installed), desired (manifest), available, selected, source, policy, state,
+status, and reason. Theme state distinguishes active child, inactive child,
+parent, inactive, missing, and unmanaged themes. Core output also identifies the
+latest eligible patch, minor, and major while preserving the manifest locale.
+
+`update` is manifest-only. A named category update may use an exact `--version`;
+category `--all` and aggregate `--all` resolve every already-managed entry under
+its `updatePolicy`. Policies are `exact`, `patch`, `minor`, and `major`, with
+`exact` as the default. Selection uses semantic ordering, preserves exact
+prerelease identifiers, never opts a stable manifest into a prerelease, and never
+silently crosses policy boundaries.
+
+Only entries whose manifest source is `wordpress.org` are queried there. Custom
+Git, vendor, and local-artifact entries are not guessed: without trusted update
+metadata they are reported `unknown` and left unchanged. Unmanaged packages are
+reported by checks but are never added by bulk updates.
+
+Before a write, the complete deterministic proposal is shown. `--write` accepts
+it in automation; a named `--version` is also explicit write intent. An
+interactive terminal may confirm, defaulting to no. JSON and other non-interactive
+calls never prompt and remain previews without explicit intent. All resolutions
+must succeed before a same-directory atomic manifest replacement; partial update
+is not supported. Locale, activation, source metadata, and unrelated package
+entries are preserved. Run `deps install` separately to apply the new desired
+versions to WordPress.
 
 ### Inventory review warning
 

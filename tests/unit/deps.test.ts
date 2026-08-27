@@ -520,7 +520,7 @@ describe("execution, output, and exit behavior", () => {
     );
     expect(checkOutput("recovery", drift, false)).toEqual({
       schemaVersion: 1,
-      command: "check",
+      command: "verify",
       site: "recovery",
       status: "drift",
       strict: false,

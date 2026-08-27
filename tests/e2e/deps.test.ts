@@ -1,4 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { executeManifestUpdate } from "../../src/commands/deps.js";
+import { resolveUpdates } from "../../src/services/dependency-updates.js";
 import {
   collectInventory,
   compareDependencies,
@@ -118,4 +123,64 @@ describe("E2E: dependency reconciliation", () => {
     const observed = await collectInventory(transport, "test");
     expect(planInstall(manifest, observed)).toEqual([]);
   });
+
+  test("manifest update does not mutate WordPress until deps install", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "deps-e2e-update-"));
+    const path = join(directory, "packages.json");
+    try {
+      const oldManifest = await desired(false, "1.7.1");
+      await executeInstallPlan(
+        transport,
+        oldManifest,
+        planInstall(oldManifest, await collectInventory(transport, "test")),
+      );
+      expect(
+        (await collectInventory(transport, "test")).plugins.find(
+          (plugin) => plugin.slug === slug,
+        )?.version,
+      ).toBe("1.7.1");
+
+      await writeFile(path, `${JSON.stringify(oldManifest, null, 2)}\n`);
+      const reports = await resolveUpdates(oldManifest, {
+        categories: ["plugin"],
+        packageSlug: slug,
+        policyOverride: "patch",
+        provider: {
+          async core() {
+            return [];
+          },
+          async package() {
+            return ["1.7.1", exactVersion];
+          },
+        },
+      });
+      expect(
+        await executeManifestUpdate(path, oldManifest, reports, {
+          explicitIntent: true,
+          interactive: false,
+        }),
+      ).toBe("written");
+
+      const afterUpdate = await collectInventory(transport, "test");
+      expect(
+        afterUpdate.plugins.find((plugin) => plugin.slug === slug)?.version,
+      ).toBe("1.7.1");
+
+      const updatedManifest = PackagesManifestSchema.parse(
+        JSON.parse(await Bun.file(path).text()),
+      );
+      await executeInstallPlan(
+        transport,
+        updatedManifest,
+        planInstall(updatedManifest, afterUpdate),
+      );
+      expect(
+        (await collectInventory(transport, "test")).plugins.find(
+          (plugin) => plugin.slug === slug,
+        )?.version,
+      ).toBe(exactVersion);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 120000);
 });
