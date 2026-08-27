@@ -24,8 +24,8 @@ services:
   db:
     image: mysql:8.0
     container_name: elementor-cli-staging-db
-    # Use mysql_native_password for compatibility with WordPress CLI (MariaDB client)
-    command: --default-authentication-plugin=mysql_native_password
+    # Keep local WP-CLI/MariaDB clients compatible with MySQL 8 auth and self-signed TLS.
+    command: --default-authentication-plugin=mysql_native_password --skip-ssl
     ports:
       - "3306:3306"
     environment:
