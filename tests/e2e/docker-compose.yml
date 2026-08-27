@@ -12,8 +12,6 @@ services:
       WORDPRESS_DB_PASSWORD: wordpress
       WORDPRESS_DB_NAME: wordpress
       WORDPRESS_DEBUG: 1
-      # MySQL uses a self-signed certificate in this isolated test environment.
-      MARIADB_TLS_DISABLE_PEER_VERIFICATION: 1
       ELEMENTOR_VERSION: ${ELEMENTOR_VERSION:-}
     volumes:
       - wordpress_data:/var/www/html

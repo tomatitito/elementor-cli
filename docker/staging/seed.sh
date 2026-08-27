@@ -59,7 +59,7 @@ echo "Found wp-config.php"
 echo "Waiting for WordPress database connection..."
 max_wait=120
 waited=0
-while ! wp db check --path=/var/www/html --allow-root 2>&1; do
+while ! wp db check --skip-ssl --path=/var/www/html --allow-root 2>&1; do
   if [ $waited -ge $max_wait ]; then
     echo "ERROR: Database connection failed after ${max_wait}s"
     exit 1
