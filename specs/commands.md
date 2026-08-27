@@ -166,6 +166,47 @@ before installation. Git metadata does not make a moving branch trusted: both th
 full reviewed revision and immutable reviewed artifact hash are required. URLs
 with credentials, query strings, fragments, or non-HTTPS schemes are rejected.
 
+### Dependency integrity audit
+
+`deps check` is release discovery: it asks whether trusted newer releases satisfy
+manifest policy. `deps verify` compares installed versions, activation, locale,
+and source metadata with desired manifest state. Neither inspects installed file
+contents. Use the separate, strictly read-only integrity audit for that:
+
+```bash
+elementor-cli deps audit --site production
+elementor-cli deps audit --site recovery --manifest recovery/packages.json
+elementor-cli deps audit --site production --json --output audit.json
+elementor-cli deps audit --site production --fail-on warning
+```
+
+The explicit site must have an SSH or Compose WP-CLI transport; URL/REST access is
+not enough. A manifest is optional and contributes reviewed custom artifact/Git
+provenance without being treated as proof that extracted files still match the
+artifact. The audit normalizes the supported WordPress core/plugin checksum
+commands, independently checks the official plugin file list for missing files,
+and preserves added, missing, and modified files as separate findings. It also
+reports unknown/custom sources and exact reference failures (HTTP 404, network
+failure, or unsupported custom/theme checksums). Official theme checksums are not
+currently published by the supported WP-CLI tooling, so themes are reported as
+unavailable rather than falsely clean.
+
+Every finding has severity, component, reason, evidence, trusted reference where
+available, and remediation. Existing suspicious files are only hashed for
+evidence; they are never loaded or executed. Uploads are traversed without
+following symlinks, with a 100,000-entry safety limit, and executable extensions
+or executable mode beneath uploads are critical. Regular plugins and themes
+remain skipped while WP-CLI runs. No audit command installs, updates, deletes,
+uploads, or changes the site, database, or manifest. It neither looks up
+vulnerabilities nor infers them from package age.
+
+Human and schema-versioned JSON contain the same evidence fields in deterministic
+severity/component/package/path order. `--output` writes that JSON locally.
+`--fail-on` accepts `info`, `warning`, `high`, or `critical` and defaults to
+`high`. Exit `0` means no finding reached the threshold, exit `1` means one did,
+and exit `2` is reserved for invalid configuration, connection failure, unsafe or
+malformed tool output, and incomplete audit execution.
+
 ### Reconciliation and exits
 
 Install prints its complete plan before changes, uses exact official versions or
@@ -178,8 +219,8 @@ Human and `--json` output identify each mismatch with package, field, expected,
 and actual values. Output excludes REST/SSH/Compose credentials and custom source
 locations. Exit codes are stable: `0` match, `1` drift/install failure (including
 a dry-run with a non-empty plan), and `2` invalid config/manifest, connection, or
-operational error. This is alignment checking, not deep integrity analysis; that
-belongs to a future `deps audit` command.
+operational error. This is alignment checking, not deep integrity analysis; use
+`deps audit` for installed-file integrity.
 
 ---
 
@@ -574,6 +615,8 @@ elementor-cli regenerate-css 42 156 203
 ## `elementor-cli audit`
 
 Detect URL mismatches, missing assets, and CSS issues in a page.
+This page command is unrelated to `elementor-cli deps audit`, which inspects
+WordPress dependency files and uploads through WP-CLI.
 
 ```bash
 # Audit a page

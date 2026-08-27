@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeManifestUpdate } from "../../src/commands/deps.js";
+import { auditDependencies } from "../../src/services/dependency-audit.js";
 import { resolveUpdates } from "../../src/services/dependency-updates.js";
 import {
   collectInventory,
@@ -183,4 +184,93 @@ describe("E2E: dependency reconciliation", () => {
       await rm(directory, { recursive: true, force: true });
     }
   }, 120000);
+
+  test("audits modified, missing, added, unknown, unavailable, and uploads fixtures", async () => {
+    expect(
+      (
+        await transport.exec([
+          "plugin",
+          "install",
+          slug,
+          `--version=${exactVersion}`,
+          "--force",
+        ])
+      ).exitCode,
+    ).toBe(0);
+    const manifest = await desired(false);
+    const createFixtures = String.raw`
+$plugin = WP_PLUGIN_DIR . '/hello-dolly';
+file_put_contents($plugin . '/hello.php', "\n// modified audit fixture\n", FILE_APPEND);
+@unlink($plugin . '/readme.txt');
+file_put_contents($plugin . '/unexpected.php', "<?php\n// added audit fixture\n");
+$custom = WP_PLUGIN_DIR . '/audit-unknown';
+wp_mkdir_p($custom);
+file_put_contents($custom . '/audit-unknown.php', "<?php\n/* Plugin Name: Audit Unknown Fixture\nVersion: 1.0.0 */\n");
+$upload = wp_upload_dir(null, false);
+wp_mkdir_p($upload['basedir'] . '/audit-fixture');
+file_put_contents($upload['basedir'] . '/audit-fixture/shell.php', "<?php\n// executable upload fixture\n");
+`;
+    const cleanupFixtures = String.raw`
+$remove = static function($path) use (&$remove) {
+  if (is_dir($path) && !is_link($path)) {
+    foreach (array_diff(scandir($path), array('.', '..')) as $entry) { $remove($path . '/' . $entry); }
+    @rmdir($path);
+  } else { @unlink($path); }
+};
+$remove(WP_PLUGIN_DIR . '/audit-unknown');
+$upload = wp_upload_dir(null, false);
+$remove($upload['basedir'] . '/audit-fixture');
+`;
+
+    try {
+      expect((await transport.exec(["eval", createFixtures])).exitCode).toBe(0);
+      const findings = await auditDependencies(
+        transport,
+        await collectInventory(transport, "test"),
+        manifest,
+      );
+
+      expect(findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            package: slug,
+            path: `wp-content/plugins/${slug}/hello.php`,
+            reason: expect.stringContaining("does not match"),
+          }),
+          expect.objectContaining({
+            package: slug,
+            path: `wp-content/plugins/${slug}/readme.txt`,
+            reason: "official package file is missing",
+          }),
+          expect.objectContaining({
+            package: slug,
+            path: `wp-content/plugins/${slug}/unexpected.php`,
+            reason: expect.stringContaining("absent from the official package"),
+          }),
+          expect.objectContaining({
+            package: "audit-unknown",
+            actual: "unknown source",
+          }),
+          expect.objectContaining({
+            package: "audit-unknown",
+            reason: expect.stringContaining("HTTP 404"),
+          }),
+          expect.objectContaining({
+            severity: "critical",
+            componentType: "uploads",
+            path: expect.stringContaining("/audit-fixture/shell.php"),
+          }),
+        ]),
+      );
+    } finally {
+      await transport.exec(["eval", cleanupFixtures]);
+      await transport.exec([
+        "plugin",
+        "install",
+        slug,
+        `--version=${exactVersion}`,
+        "--force",
+      ]);
+    }
+  }, 180000);
 });

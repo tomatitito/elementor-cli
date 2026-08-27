@@ -177,6 +177,11 @@ elementor-cli deps core check --site recovery --manifest recovery/packages.json
 elementor-cli deps themes check --site recovery --manifest recovery/packages.json
 elementor-cli deps plugins check --site recovery --manifest recovery/packages.json
 
+# Read-only installed-file integrity (manifest provenance is optional)
+elementor-cli deps audit --site recovery --manifest recovery/packages.json
+elementor-cli deps audit --site recovery --json --output recovery/audit.json
+elementor-cli deps audit --site recovery --fail-on warning
+
 # Preview policy-selected changes; no manifest or WordPress mutation
 elementor-cli deps update --all --manifest recovery/packages.json
 
@@ -202,6 +207,22 @@ and vendor packages without trusted update metadata remain unchanged with status
 Automatic writes require `--write` or interactive confirmation; `--version` is
 itself explicit write intent. Non-interactive calls without that intent are safe
 previews and never prompt.
+
+`deps check` discovers releases and evaluates manifest update policy; it does not
+inspect files. `deps audit` instead compares installed core/plugin files with
+published checksums, reports added/missing/modified files separately, identifies
+unknown/custom or unsupported checksum sources, and flags executable files under
+uploads as critical. Its optional manifest supplies reviewed custom source
+provenance, not a claim that extracted files match an artifact ZIP. Theme
+checksums are explicitly reported unavailable because the supported official
+WP-CLI tooling does not publish them. Audit is read-only, skips regular plugins
+and themes, does not execute discovered files, and performs no vulnerability or
+"outdated means vulnerable" inference. `--fail-on` controls exits: `0` below
+threshold, `1` at/above threshold, and `2` for configuration, connection, or
+incomplete execution errors.
+
+The top-level `elementor-cli audit <page-id>` is different again: it audits one
+Elementor page's URLs, assets, and generated CSS, not dependency integrity.
 
 Each core, plugin, or theme entry may set `updatePolicy` to `exact`, `patch`,
 `minor`, or `major` (`exact` is the safe default). Policy selection does not move

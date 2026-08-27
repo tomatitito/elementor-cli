@@ -2,6 +2,13 @@ import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { Command } from "commander";
 import {
+  type DependencyAuditFinding,
+  type DependencyAuditSeverity,
+  auditDependencies,
+  auditReport,
+  exitCodeForAudit,
+} from "../services/dependency-audit.js";
+import {
   type UpdateCategory,
   type UpdateReport,
   applySelectedVersions,
@@ -155,6 +162,46 @@ function printCheckHuman(site: string, drift: DependencyDrift[]): void {
     console.log(
       `  ${item.kind} ${item.package}: ${item.field}; expected ${String(item.expected)}, actual ${String(item.actual)}`,
     );
+  }
+}
+
+function auditThreshold(value?: string): DependencyAuditSeverity {
+  if (
+    value === "info" ||
+    value === "warning" ||
+    value === "high" ||
+    value === "critical"
+  )
+    return value;
+  throw new DepsOperationalError(
+    "--fail-on must be one of: info, warning, high, critical.",
+  );
+}
+
+function printAuditHuman(
+  site: string,
+  findings: DependencyAuditFinding[],
+  threshold: DependencyAuditSeverity,
+): void {
+  console.log(`Dependency integrity audit for site '${site}'`);
+  console.log(`Failure threshold: ${threshold}`);
+  if (findings.length === 0) {
+    console.log("No integrity findings.");
+    return;
+  }
+  for (const finding of findings) {
+    const identity = [finding.package, finding.version]
+      .filter(Boolean)
+      .join(" ");
+    console.log(
+      `[${finding.severity.toUpperCase()}] ${identity || finding.componentType}`,
+    );
+    console.log(`Reason: ${finding.reason}`);
+    if (finding.path) console.log(`File: ${finding.path}`);
+    if (finding.expected) console.log(`Expected: ${finding.expected}`);
+    if (finding.actual) console.log(`Actual: ${finding.actual}`);
+    if (finding.reference) console.log(`Reference: ${finding.reference}`);
+    console.log(`Remediation: ${finding.remediation}`);
   }
 }
 
@@ -459,6 +506,57 @@ depsCommand
         process.exitCode = exitCodeForCheck(drift);
       } catch (error) {
         reportError("verify", error, options.json);
+        process.exitCode = 2;
+      }
+    },
+  );
+
+depsCommand
+  .command("audit")
+  .description(
+    "Read-only integrity audit of WordPress core, packages, and uploads",
+  )
+  .option("-s, --site <name>", "Explicit site name (required)")
+  .option("-m, --manifest <path>", "Optional packages.json provenance")
+  .option("--fail-on <severity>", "Finding threshold", "high")
+  .option("-o, --output <path>", "Write stable, secret-free JSON to a file")
+  .option("--json", "Print stable JSON")
+  .action(
+    async (
+      options: CommonOptions & {
+        manifest?: string;
+        failOn?: string;
+        output?: string;
+      },
+    ) => {
+      try {
+        const site = requireSite(options);
+        const threshold = auditThreshold(options.failOn);
+        const manifest = options.manifest
+          ? await readPackagesManifest(options.manifest)
+          : undefined;
+        const transport = await siteTransport(site);
+        const inventory = await collectInventory(transport, site);
+        const findings = await auditDependencies(
+          transport,
+          inventory,
+          manifest,
+        );
+        const report = auditReport(site, findings, threshold);
+        const json = `${JSON.stringify(report, null, 2)}\n`;
+        if (options.output) {
+          await mkdir(dirname(options.output), { recursive: true });
+          await Bun.write(options.output, json);
+        }
+        if (options.json) console.log(json.trimEnd());
+        else {
+          printAuditHuman(site, findings, threshold);
+          if (options.output)
+            console.log(`Audit JSON written to ${options.output}`);
+        }
+        process.exitCode = exitCodeForAudit(findings, threshold);
+      } catch (error) {
+        reportError("deps audit", error, options.json);
         process.exitCode = 2;
       }
     },
