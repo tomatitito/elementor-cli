@@ -7,14 +7,14 @@
  * - diff
  */
 
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdir, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { spawn } from "bun";
-import { join } from "path";
-import { rm, mkdir } from "fs/promises";
 import {
-  setupTestEnvironment,
   type TestEnvironment,
   createTestConfig,
+  setupTestEnvironment,
 } from "./setup";
 
 const CLI_PATH = join(import.meta.dir, "../../src/index.ts");
@@ -28,8 +28,13 @@ let env: TestEnvironment;
  */
 async function runCli(
   args: string[],
-  cwd?: string
-): Promise<{ stdout: string; stderr: string; output: string; exitCode: number }> {
+  cwd?: string,
+): Promise<{
+  stdout: string;
+  stderr: string;
+  output: string;
+  exitCode: number;
+}> {
   const proc = spawn({
     cmd: ["bun", "run", CLI_PATH, ...args],
     cwd: cwd ?? import.meta.dir,
@@ -100,14 +105,14 @@ describe("E2E: pull/push/diff commands", () => {
         "pages",
         "test",
         String(env.pages.complex),
-        "elements.json"
+        "elements.json",
       );
       const metaPath = join(
         TEST_PAGES_DIR,
         "pages",
         "test",
         String(env.pages.complex),
-        "meta.json"
+        "meta.json",
       );
 
       const elementsFile = Bun.file(elementsPath);
@@ -122,14 +127,20 @@ describe("E2E: pull/push/diff commands", () => {
     });
 
     test("pulls page with correct template", async () => {
-      await runCli(["pull", String(env.pages.simple), "--site", "test"]);
+      await runCli([
+        "pull",
+        String(env.pages.simple),
+        "--site",
+        "test",
+        "--force",
+      ]);
 
       const metaPath = join(
         TEST_PAGES_DIR,
         "pages",
         "test",
         String(env.pages.simple),
-        "meta.json"
+        "meta.json",
       );
       const metaFile = Bun.file(metaPath);
       const meta = await metaFile.json();
@@ -162,7 +173,13 @@ describe("E2E: pull/push/diff commands", () => {
   describe("push", () => {
     test("pushes modified page to remote", async () => {
       // First pull the page
-      await runCli(["pull", String(env.pages.simple), "--site", "test"]);
+      await runCli([
+        "pull",
+        String(env.pages.simple),
+        "--site",
+        "test",
+        "--force",
+      ]);
 
       // Modify the local elements.json
       const elementsPath = join(
@@ -170,7 +187,7 @@ describe("E2E: pull/push/diff commands", () => {
         "pages",
         "test",
         String(env.pages.simple),
-        "elements.json"
+        "elements.json",
       );
       const elements = await Bun.file(elementsPath).json();
 
@@ -207,7 +224,13 @@ describe("E2E: pull/push/diff commands", () => {
 
     test("undo restores page to previous revision", async () => {
       // Pull a page
-      await runCli(["pull", String(env.pages.simple), "--site", "test"]);
+      await runCli([
+        "pull",
+        String(env.pages.simple),
+        "--site",
+        "test",
+        "--force",
+      ]);
 
       // Modify and push so a revision gets created
       const elementsPath = join(
@@ -215,11 +238,11 @@ describe("E2E: pull/push/diff commands", () => {
         "pages",
         "test",
         String(env.pages.simple),
-        "elements.json"
+        "elements.json",
       );
       const elements = await Bun.file(elementsPath).json();
       if (elements[0]?.elements?.[0]?.settings) {
-        elements[0].elements[0].settings.title = "Undo Test " + Date.now();
+        elements[0].elements[0].settings.title = `Undo Test ${Date.now()}`;
       }
       await Bun.write(elementsPath, JSON.stringify(elements, null, 2));
 
@@ -263,7 +286,13 @@ describe("E2E: pull/push/diff commands", () => {
   describe("diff", () => {
     test("shows diff between local and remote", async () => {
       // Pull a page first
-      await runCli(["pull", String(env.pages.complex), "--site", "test"]);
+      await runCli([
+        "pull",
+        String(env.pages.complex),
+        "--site",
+        "test",
+        "--force",
+      ]);
 
       // Modify local file
       const elementsPath = join(
@@ -271,7 +300,7 @@ describe("E2E: pull/push/diff commands", () => {
         "pages",
         "test",
         String(env.pages.complex),
-        "elements.json"
+        "elements.json",
       );
       const elements = await Bun.file(elementsPath).json();
       if (elements[0]?.settings) {
@@ -303,7 +332,8 @@ describe("E2E: pull/push/diff commands", () => {
       ]);
       const match = createResult.output.match(/ID: (\d+)/);
       expect(match).not.toBeNull();
-      const pageId = match![1];
+      if (!match) throw new Error("Created page output did not include an ID");
+      const pageId = match[1];
 
       // Pull the fresh page
       await runCli(["pull", pageId, "--site", "test"]);

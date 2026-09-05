@@ -85,14 +85,15 @@ foreach ($requested as $path) {
   $hashes[$path] = hash_file('sha256', $real);
 }
 $plugin_missing = array();
+$plugin_unavailable = array();
 $expected = array();
 foreach ($input['plugins'] as $plugin) {
   if (!is_array($plugin) || !isset($plugin['slug'], $plugin['version']) || !preg_match('/^[a-z0-9][a-z0-9._-]{0,190}$/D', $plugin['slug']) || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$/D', $plugin['version'])) { WP_CLI::error('Invalid plugin checksum request.'); }
   $url = 'https://downloads.wordpress.org/plugin-checksums/' . rawurlencode($plugin['slug']) . '/' . rawurlencode($plugin['version']) . '.json';
   $response = wp_remote_get($url, array('timeout' => 20, 'redirection' => 2, 'reject_unsafe_urls' => true, 'limit_response_size' => 20971520));
-  if (is_wp_error($response)) { WP_CLI::error('Independent plugin checksum retrieval failed due to a network error.'); }
+  if (is_wp_error($response)) { $plugin_unavailable[] = array('slug' => $plugin['slug'], 'version' => $plugin['version'], 'cause' => 'network-failure'); continue; }
   $status = wp_remote_retrieve_response_code($response);
-  if ($status !== 200) { WP_CLI::error('Independent plugin checksum retrieval returned HTTP ' . $status . '.'); }
+  if ($status !== 200) { $plugin_unavailable[] = array('slug' => $plugin['slug'], 'version' => $plugin['version'], 'cause' => $status === 404 ? 'http-404' : 'http-error', 'status' => $status); continue; }
   $decoded = json_decode(wp_remote_retrieve_body($response), true);
   if (!is_array($decoded) || !isset($decoded['files']) || !is_array($decoded['files']) || count($decoded['files']) > 100000) { WP_CLI::error('Independent plugin checksum response was invalid or exceeded the safety limit.'); }
   foreach ($decoded['files'] as $file => $checksums) {
@@ -131,8 +132,9 @@ if ($uploads_status === 'scanned') {
 }
 usort($uploads, static function($a, $b) { return strcmp($a['path'], $b['path']); });
 usort($plugin_missing, static function($a, $b) { return strcmp($a['path'], $b['path']); });
+usort($plugin_unavailable, static function($a, $b) { return strcmp($a['slug'] . ':' . $a['version'], $b['slug'] . ':' . $b['version']); });
 ksort($expected);
-echo wp_json_encode(array('hashes' => $hashes, 'expected' => $expected, 'pluginMissing' => $plugin_missing, 'uploadsStatus' => $uploads_status, 'uploads' => $uploads));
+echo wp_json_encode(array('hashes' => $hashes, 'expected' => $expected, 'pluginMissing' => $plugin_missing, 'pluginUnavailable' => $plugin_unavailable, 'uploadsStatus' => $uploads_status, 'uploads' => $uploads));
 `;
 
 const hashOutputSchema = z.object({
@@ -140,6 +142,14 @@ const hashOutputSchema = z.object({
   expected: z.record(z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1)),
   pluginMissing: z.array(
     z.object({ slug: z.string(), version: z.string(), path: z.string() }),
+  ),
+  pluginUnavailable: z.array(
+    z.object({
+      slug: z.string(),
+      version: z.string(),
+      cause: z.enum(["http-404", "http-error", "network-failure"]),
+      status: z.number().int().optional(),
+    }),
   ),
   uploadsStatus: z.enum([
     "scanned",
@@ -185,6 +195,38 @@ function checksumKind(message: string): ChecksumKind | undefined {
   return undefined;
 }
 
+function checksumUnavailable(
+  failureText: string,
+): ChecksumUnavailable | undefined {
+  if (/\b404\b|not found|no checksums (?:are )?available/i.test(failureText)) {
+    return {
+      cause: "http-404",
+      reason:
+        "HTTP 404: WordPress.org has no checksums for this package and version.",
+    };
+  }
+  const httpStatus = failureText.match(
+    /HTTP(?:\s+(?:code|status))?\s*[:=]?\s*(\d{3})/i,
+  );
+  if (httpStatus) {
+    return {
+      cause: "http-error",
+      reason: `HTTP ${httpStatus[1]}: WordPress.org checksum retrieval failed.`,
+    };
+  }
+  if (
+    /timed? out|could not resolve|couldn't connect|unable to connect|curl error|network|couldn't fetch|failed to open stream/i.test(
+      failureText,
+    )
+  ) {
+    return {
+      cause: "network-failure",
+      reason: "Network failure while retrieving WordPress.org checksums.",
+    };
+  }
+  return undefined;
+}
+
 export function normalizeChecksumOutput(
   stdout: string,
   stderr: string,
@@ -193,18 +235,26 @@ export function normalizeChecksumOutput(
   let rows: z.infer<typeof checksumRowSchema>[] = [];
   const output = stdout.trim();
   if (output) {
-    let decoded: unknown;
-    try {
-      decoded = JSON.parse(output);
-    } catch {
-      throw new DepsOperationalError("WP-CLI returned invalid checksum JSON.");
+    if (
+      !/^Success: Verified \d+ of \d+ plugins(?: \(\d+ skipped\))?\.$/.test(
+        output,
+      )
+    ) {
+      let decoded: unknown;
+      try {
+        decoded = JSON.parse(output);
+      } catch {
+        throw new DepsOperationalError(
+          "WP-CLI returned invalid checksum JSON.",
+        );
+      }
+      const parsed = z.array(checksumRowSchema).safeParse(decoded);
+      if (!parsed.success)
+        throw new DepsOperationalError(
+          "WP-CLI returned an invalid checksum result shape.",
+        );
+      rows = parsed.data;
     }
-    const parsed = z.array(checksumRowSchema).safeParse(decoded);
-    if (!parsed.success)
-      throw new DepsOperationalError(
-        "WP-CLI returned an invalid checksum result shape.",
-      );
-    rows = parsed.data;
   }
 
   const findings: NormalizedChecksumFinding[] = [];
@@ -221,41 +271,8 @@ export function normalizeChecksumOutput(
   const failureText = redactWpCliSecrets(
     [...unknownMessages, stderr].filter(Boolean).join("\n"),
   );
-  if (/\b404\b|not found|no checksums (?:are )?available/i.test(failureText)) {
-    return {
-      findings,
-      unavailable: {
-        cause: "http-404",
-        reason:
-          "HTTP 404: WordPress.org has no checksums for this package and version.",
-      },
-    };
-  }
-  const httpStatus = failureText.match(
-    /HTTP(?:\s+(?:code|status))?\s*[:=]?\s*(\d{3})/i,
-  );
-  if (httpStatus) {
-    return {
-      findings,
-      unavailable: {
-        cause: "http-error",
-        reason: `HTTP ${httpStatus[1]}: WordPress.org checksum retrieval failed.`,
-      },
-    };
-  }
-  if (
-    /timed? out|could not resolve|couldn't connect|unable to connect|curl error|network|couldn't fetch|failed to open stream/i.test(
-      failureText,
-    )
-  ) {
-    return {
-      findings,
-      unavailable: {
-        cause: "network-failure",
-        reason: "Network failure while retrieving WordPress.org checksums.",
-      },
-    };
-  }
+  const unavailable = checksumUnavailable(failureText);
+  if (unavailable) return { findings, unavailable };
   if (unknownMessages.length > 0) {
     throw new DepsOperationalError(
       "WP-CLI returned an unrecognized checksum finding.",
@@ -267,6 +284,56 @@ export function normalizeChecksumOutput(
       detail
         ? `Checksum audit failed: ${detail}`
         : `Checksum audit exited with code ${exitCode}.`,
+    );
+  }
+  return { findings };
+}
+
+export function normalizeCoreChecksumOutput(
+  stdout: string,
+  stderr: string,
+  exitCode: number,
+): NormalizedChecksumResult {
+  const findings: NormalizedChecksumFinding[] = [];
+  const unknownLines: string[] = [];
+  const summaries = new Set([
+    "Success: WordPress installation verifies against checksums.",
+    "Error: WordPress installation doesn't verify against checksums.",
+  ]);
+
+  for (const line of `${stdout}\n${stderr}`.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || summaries.has(trimmed)) continue;
+    const match = trimmed.match(
+      /^Warning: File (should not exist|doesn't exist|doesn't verify against checksum): (.+)$/,
+    );
+    if (!match) {
+      unknownLines.push(trimmed);
+      continue;
+    }
+    const kind: ChecksumKind =
+      match[1] === "should not exist"
+        ? "added"
+        : match[1] === "doesn't exist"
+          ? "missing"
+          : "modified";
+    findings.push({ kind, path: safeRelativePath(match[2]) });
+  }
+
+  findings.sort((left, right) =>
+    `${left.path}:${left.kind}`.localeCompare(`${right.path}:${right.kind}`),
+  );
+  const failureText = redactWpCliSecrets(unknownLines.join("\n"));
+  const unavailable = checksumUnavailable(failureText);
+  if (unavailable) return { findings, unavailable };
+  if (unknownLines.length > 0) {
+    throw new DepsOperationalError(
+      "WP-CLI returned unrecognized core checksum output.",
+    );
+  }
+  if (exitCode !== 0 && findings.length === 0) {
+    throw new DepsOperationalError(
+      `Core checksum audit exited with code ${exitCode}.`,
     );
   }
   return { findings };
@@ -464,14 +531,18 @@ export async function auditDependencies(
     "wordpress",
     inventory.core.version,
   );
-  const core = await runChecksum(transport, [
+  const coreResult = await transport.exec([
     "core",
     "verify-checksums",
     `--version=${inventory.core.version}`,
     `--locale=${inventory.core.locale}`,
     "--include-root",
-    "--format=json",
   ]);
+  const core = normalizeCoreChecksumOutput(
+    coreResult.stdout,
+    coreResult.stderr,
+    coreResult.exitCode,
+  );
   for (const item of core.findings) {
     pending.push({
       componentType: "core",
@@ -738,6 +809,29 @@ export async function auditDependencies(
       kind: "missing",
       reference: referenceFor("plugin", missing.slug, missing.version),
     });
+  }
+  for (const unavailable of scan.data.pluginUnavailable) {
+    if (
+      !allowedPluginReferences.has(`${unavailable.slug}:${unavailable.version}`)
+    )
+      throw new DepsOperationalError(
+        "WP-CLI returned unavailable checksum evidence for an unrequested package.",
+      );
+    const reason =
+      unavailable.cause === "http-404"
+        ? "HTTP 404: WordPress.org has no independent checksums for this package and version."
+        : unavailable.cause === "network-failure"
+          ? "Network failure while independently retrieving WordPress.org checksums."
+          : `HTTP ${unavailable.status ?? "error"}: Independent WordPress.org checksum retrieval failed.`;
+    findings.push(
+      unavailableFinding(
+        "plugin",
+        unavailable.slug,
+        unavailable.version,
+        reason,
+        referenceFor("plugin", unavailable.slug, unavailable.version),
+      ),
+    );
   }
   for (const item of pending)
     findings.push(

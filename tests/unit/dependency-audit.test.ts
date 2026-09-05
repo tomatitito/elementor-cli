@@ -5,6 +5,7 @@ import {
   auditReport,
   exitCodeForAudit,
   normalizeChecksumOutput,
+  normalizeCoreChecksumOutput,
 } from "../../src/services/dependency-audit.js";
 import { DepsOperationalError } from "../../src/services/deps-manager.js";
 import type {
@@ -17,6 +18,9 @@ import {
   PackagesManifestSchema,
   type SiteInventory,
 } from "../../src/types/deps.js";
+
+const CORE_CHECKSUM_SUCCESS =
+  "Success: WordPress installation verifies against checksums.";
 
 class FakeTransport implements WpCliTransport {
   calls: Array<{ args: string[]; options: WpCliExecOptions }> = [];
@@ -77,6 +81,60 @@ describe("checksum normalization", () => {
         { kind: "added", path: "z.php" },
       ],
     });
+  });
+
+  test("accepts WP-CLI's non-JSON success summary", () => {
+    expect(
+      normalizeChecksumOutput("Success: Verified 1 of 1 plugins.\n", "", 0),
+    ).toEqual({ findings: [] });
+    expect(
+      normalizeChecksumOutput(
+        "Success: Verified 0 of 1 plugins (1 skipped).\n",
+        "Warning: Couldn't fetch checksums (HTTP code 404).",
+        0,
+      ).unavailable?.cause,
+    ).toBe("http-404");
+  });
+
+  test("normalizes supported core checksum text output", () => {
+    expect(
+      normalizeCoreChecksumOutput(
+        "Success: WordPress installation verifies against checksums.\n",
+        "Warning: File should not exist: wp-config-docker.php\n",
+        0,
+      ),
+    ).toEqual({
+      findings: [{ kind: "added", path: "wp-config-docker.php" }],
+    });
+    expect(
+      normalizeCoreChecksumOutput(
+        "",
+        [
+          "Warning: File doesn't exist: license.txt",
+          "Warning: File doesn't verify against checksum: index.php",
+          "Error: WordPress installation doesn't verify against checksums.",
+        ].join("\n"),
+        1,
+      ),
+    ).toEqual({
+      findings: [
+        { kind: "modified", path: "index.php" },
+        { kind: "missing", path: "license.txt" },
+      ],
+    });
+  });
+
+  test("rejects unknown or unsafe core checksum text", () => {
+    expect(() =>
+      normalizeCoreChecksumOutput("", "Warning: Unexpected result", 1),
+    ).toThrow("unrecognized core checksum output");
+    expect(() =>
+      normalizeCoreChecksumOutput(
+        "",
+        "Warning: File should not exist: ../secret",
+        1,
+      ),
+    ).toThrow("unsafe checksum finding path");
   });
 
   test("distinguishes HTTP 404 from network failure without leaking secrets", () => {
@@ -176,7 +234,9 @@ describe("dependency integrity audit", () => {
       "wp-content/plugins/official/changed.js": "2".repeat(64),
     };
     const transport = new FakeTransport((args) => {
-      if (args[0] === "core") return { exitCode: 0, stdout: "[]", stderr: "" };
+      if (args[0] === "core") {
+        return { exitCode: 0, stdout: CORE_CHECKSUM_SUCCESS, stderr: "" };
+      }
       if (args[0] === "plugin" && args.includes("official")) {
         return {
           exitCode: 1,
@@ -218,6 +278,7 @@ describe("dependency integrity audit", () => {
                 path: "wp-content/plugins/official/missing.css",
               },
             ],
+            pluginUnavailable: [],
             uploadsStatus: "scanned",
             uploads: [
               {
@@ -305,10 +366,11 @@ describe("dependency integrity audit", () => {
               hashes: {},
               expected: {},
               pluginMissing: [],
+              pluginUnavailable: [],
               uploadsStatus: "outside-root",
               uploads: [],
             })
-          : "[]",
+          : CORE_CHECKSUM_SUCCESS,
       stderr: "",
     }));
     const findings = await auditDependencies(
@@ -333,6 +395,7 @@ describe("dependency integrity audit", () => {
       ["core", "verify-checksums"],
       ["eval", expect.any(String)],
     ]);
+    expect(transport.calls[0].args).not.toContain("--format=json");
     const serializedCalls = JSON.stringify(transport.calls);
     expect(serializedCalls).not.toContain(source.url);
     for (const mutation of [
@@ -362,7 +425,7 @@ describe("dependency integrity audit", () => {
     const transport = new FakeTransport((args) =>
       args[0] === "eval"
         ? { exitCode: 1, stdout: "", stderr: "token=secret-value" }
-        : { exitCode: 0, stdout: "[]", stderr: "" },
+        : { exitCode: 0, stdout: CORE_CHECKSUM_SUCCESS, stderr: "" },
     );
     await expect(auditDependencies(transport, inventory())).rejects.toEqual(
       expect.objectContaining({

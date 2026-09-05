@@ -15,8 +15,9 @@ import { ComposeWpCliTransport } from "../../src/services/wp-cli-transport.js";
 import { PackagesManifestSchema } from "../../src/types/deps.js";
 import { setupTestEnvironment } from "./setup.js";
 
-const slug = "hello-dolly";
-const exactVersion = "1.7.2";
+const slug = "classic-editor";
+const oldVersion = "1.6.7";
+const exactVersion = "1.7.0";
 const transport = new ComposeWpCliTransport(
   {
     type: "compose",
@@ -87,13 +88,13 @@ describe("E2E: dependency reconciliation", () => {
   }, 120000);
 
   test("explains exact version drift", async () => {
-    const wrongVersion = await desired(false, "1.7.1");
+    const wrongVersion = await desired(false, oldVersion);
     const observed = await collectInventory(transport, "test");
     expect(compareDependencies(wrongVersion, observed)).toContainEqual({
       kind: "plugin",
       package: slug,
       field: "version",
-      expected: "1.7.1",
+      expected: oldVersion,
       actual: exactVersion,
     });
   });
@@ -129,7 +130,7 @@ describe("E2E: dependency reconciliation", () => {
     const directory = await mkdtemp(join(tmpdir(), "deps-e2e-update-"));
     const path = join(directory, "packages.json");
     try {
-      const oldManifest = await desired(false, "1.7.1");
+      const oldManifest = await desired(false, oldVersion);
       await executeInstallPlan(
         transport,
         oldManifest,
@@ -139,19 +140,19 @@ describe("E2E: dependency reconciliation", () => {
         (await collectInventory(transport, "test")).plugins.find(
           (plugin) => plugin.slug === slug,
         )?.version,
-      ).toBe("1.7.1");
+      ).toBe(oldVersion);
 
       await writeFile(path, `${JSON.stringify(oldManifest, null, 2)}\n`);
       const reports = await resolveUpdates(oldManifest, {
         categories: ["plugin"],
         packageSlug: slug,
-        policyOverride: "patch",
+        policyOverride: "minor",
         provider: {
           async core() {
             return [];
           },
           async package() {
-            return ["1.7.1", exactVersion];
+            return [oldVersion, exactVersion];
           },
         },
       });
@@ -165,7 +166,7 @@ describe("E2E: dependency reconciliation", () => {
       const afterUpdate = await collectInventory(transport, "test");
       expect(
         afterUpdate.plugins.find((plugin) => plugin.slug === slug)?.version,
-      ).toBe("1.7.1");
+      ).toBe(oldVersion);
 
       const updatedManifest = PackagesManifestSchema.parse(
         JSON.parse(await Bun.file(path).text()),
@@ -199,8 +200,8 @@ describe("E2E: dependency reconciliation", () => {
     ).toBe(0);
     const manifest = await desired(false);
     const createFixtures = String.raw`
-$plugin = WP_PLUGIN_DIR . '/hello-dolly';
-file_put_contents($plugin . '/hello.php', "\n// modified audit fixture\n", FILE_APPEND);
+$plugin = WP_PLUGIN_DIR . '/classic-editor';
+file_put_contents($plugin . '/classic-editor.php', "\n// modified audit fixture\n", FILE_APPEND);
 @unlink($plugin . '/readme.txt');
 file_put_contents($plugin . '/unexpected.php', "<?php\n// added audit fixture\n");
 $custom = WP_PLUGIN_DIR . '/audit-unknown';
@@ -234,7 +235,7 @@ $remove($upload['basedir'] . '/audit-fixture');
         expect.arrayContaining([
           expect.objectContaining({
             package: slug,
-            path: `wp-content/plugins/${slug}/hello.php`,
+            path: `wp-content/plugins/${slug}/classic-editor.php`,
             reason: expect.stringContaining("does not match"),
           }),
           expect.objectContaining({
