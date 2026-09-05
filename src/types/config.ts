@@ -1,6 +1,20 @@
 import { z } from "zod";
 import { DEFAULT_PAGES_DIR, DEFAULT_STAGING_DIR } from "../utils/constants.js";
 
+function isCanonicalRemotePath(path: string): boolean {
+  if (!path.startsWith("/") || path === "/" || /[\0\r\n]/.test(path))
+    return false;
+  const components = path.split("/");
+  return (
+    !path.endsWith("/") &&
+    components.every((component, index) =>
+      index === 0
+        ? component === ""
+        : component !== "" && component !== "." && component !== "..",
+    )
+  );
+}
+
 const identifier = z
   .string()
   .min(1)
@@ -22,6 +36,11 @@ const remoteWordPressPath = z
     (path) => !/[\0\r\n]/.test(path),
     "must not contain control characters",
   );
+
+const canonicalRemoteDeployPath = z
+  .string()
+  .min(1)
+  .refine(isCanonicalRemotePath, "must be a canonical absolute path");
 
 const projectFile = z
   .string()
@@ -56,6 +75,23 @@ export const WpCliConfigSchema = z.discriminatedUnion("type", [
   ComposeWpCliConfigSchema,
 ]);
 
+export const DeployConfigSchema = z
+  .object({
+    wordpressPath: canonicalRemoteDeployPath,
+    releasesPath: canonicalRemoteDeployPath,
+    strategy: z.literal("directory-rename"),
+  })
+  .superRefine((deploy, context) => {
+    const live = `${deploy.wordpressPath}/`;
+    const releases = `${deploy.releasesPath}/`;
+    if (live.startsWith(releases) || releases.startsWith(live)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "wordpressPath and releasesPath must be disjoint",
+      });
+    }
+  });
+
 export const ContainerConfigSchema = z.object({
   runtime: z.enum(["docker", "podman"]).default("docker"),
   name: z.string(),
@@ -68,6 +104,7 @@ export const SiteConfigSchema = z
     appPassword: z.string().min(1).optional(),
     container: ContainerConfigSchema.optional(),
     wpCli: WpCliConfigSchema.optional(),
+    deploy: DeployConfigSchema.optional(),
   })
   .superRefine((site, context) => {
     if ((site.username === undefined) !== (site.appPassword === undefined)) {
@@ -103,6 +140,7 @@ export type ContainerConfig = z.infer<typeof ContainerConfigSchema>;
 export type SshWpCliConfig = z.infer<typeof SshWpCliConfigSchema>;
 export type ComposeWpCliConfig = z.infer<typeof ComposeWpCliConfigSchema>;
 export type WpCliConfig = z.infer<typeof WpCliConfigSchema>;
+export type DeployConfig = z.infer<typeof DeployConfigSchema>;
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;
 export type StagingConfig = z.infer<typeof StagingConfigSchema>;
 export type Config = z.infer<typeof ConfigSchema>;

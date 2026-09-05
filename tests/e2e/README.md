@@ -119,3 +119,22 @@ docker compose ps
 docker compose down -v
 docker compose up -d
 ```
+
+## Disposable SSH Deploy Test
+
+`deploy-ssh.test.ts` targets a separately provisioned disposable SSH filesystem
+and hashes the live directory before and after a real upload. Set all three
+variables to enable it:
+
+```bash
+ELEMENTOR_CLI_DEPLOY_E2E_HOST=deploy@disposable-host \
+ELEMENTOR_CLI_DEPLOY_E2E_LIVE_PATH=/tmp/deploy-test/app \
+ELEMENTOR_CLI_DEPLOY_E2E_RELEASES_PATH=/tmp/deploy-test/releases \
+bun test tests/e2e/deploy-ssh.test.ts
+```
+
+The remote account must own both directories and the releases directory must
+contain the matching `.elementor-cli-deploy-root.json` sentinel documented in
+`specs/configuration.md`. The target is intentionally not cleaned by the CLI:
+there is no unrestricted deletion API. Destroy the disposable target after the
+test. Without these variables, the test is explicitly skipped.

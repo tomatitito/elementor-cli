@@ -32,7 +32,11 @@ sites:
     wpCli:
       type: ssh
       host: deploy@my-friends-site.de
-      path: /var/www/my-friends-site/current
+      path: /var/www/my-friends-site/app
+    deploy:
+      wordpressPath: /var/www/my-friends-site/app
+      releasesPath: /var/www/my-friends-site/releases
+      strategy: directory-rename
 
   staging-remote:
     url: https://staging.my-friends-site.de
@@ -85,6 +89,42 @@ Each site requires a `url` plus REST credentials, a WP-CLI transport, or both:
 | `createRevisions` | No | Auto-create revision before push (default: `false`) |
 | `container` | No | Container config for WP-CLI CSS flush (see below) |
 | `wpCli` | No | Reusable SSH or Compose WP-CLI transport (see below) |
+| `deploy` | No | Canonical SSH release staging paths and fixed strategy (see below) |
+
+### Deploy Configuration
+
+```yaml
+deploy:
+  wordpressPath: /hosting/apps/wordpress/app
+  releasesPath: /hosting/apps/wordpress/releases
+  strategy: directory-rename
+```
+
+Both paths must be canonical absolute paths: no root path, trailing or duplicate
+slashes, `.`/`..`, control characters, or nesting one path inside the other. The
+only accepted strategy is `directory-rename`. The site's `wpCli` transport must
+be SSH and its `path` must exactly equal `wordpressPath`; commands never accept a
+live destination override.
+
+Before use, an administrator must create `releasesPath`, make it owned by the
+least-privileged deployment account, and create an account-owned regular file
+named `.elementor-cli-deploy-root.json` whose JSON is exactly:
+
+```json
+{
+  "schemaVersion": 1,
+  "wordpressPath": "/hosting/apps/wordpress/app",
+  "releasesPath": "/hosting/apps/wordpress/releases"
+}
+```
+
+Every remote operation validates canonical real paths, disjointness, sentinel
+contents, and ownership. OpenSSH uses normal known-host verification and
+key/agent-only batch authentication. POSIX `tar` is required locally and Python
+3 is required remotely. The CLI has
+no general remote deletion operation; it can remove only the temporary directory
+created by its current failed upload, after repeating sentinel and containment
+checks.
 
 ### WP-CLI Transports
 

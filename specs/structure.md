@@ -189,11 +189,18 @@ export interface ContainerConfig {
   name: string;
 }
 
+export interface DeployConfig {
+  wordpressPath: string;             // Canonical live path (never mutated by deploy)
+  releasesPath: string;              // Canonical, disjoint staging root
+  strategy: "directory-rename";
+}
+
 export interface SiteConfig {
   url: string;
   username: string;
   appPassword: string;
   container?: ContainerConfig;       // Container for WP-CLI (CSS flush)
+  deploy?: DeployConfig;             // Non-publishing SSH release staging
   createRevisions?: boolean;         // Auto-create revision before push (default: false)
 }
 

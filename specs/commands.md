@@ -36,6 +36,75 @@ elementor-cli config test [name]
 
 ---
 
+## `elementor-cli deploy`
+
+Plan, stage, and inspect clean WordPress release candidates over SSH. All three
+commands require an explicit configured site; there is no arbitrary destination
+option and no default-site fallback.
+
+```bash
+elementor-cli deploy plan --source recovery --site production
+elementor-cli deploy plan --source recovery --site production --json
+elementor-cli deploy upload --source recovery --site production --dry-run
+elementor-cli deploy upload --source recovery --site production
+elementor-cli deploy status --site production
+```
+
+### `deploy plan`
+
+The plan is strictly read-only locally and remotely. It requires `index.php`,
+`wp-admin`, `wp-includes`, and `wp-content` directly in the source root; rejects
+all symbolic links, non-regular entries, control/traversal paths, local
+`wp-config.php`, `.env*`, private-key files, dumps, logs, quarantine, evidence,
+forensics, and `.elementor-cli` trees; and rejects PHP-like extensions or PHP
+open tags anywhere below `wp-content/uploads`. VCS directories and OS metadata
+are omitted and listed as exclusions.
+
+The deterministic manifest sorts relative paths and records each regular file's
+byte size, permission mode, and SHA-256 digest. A default release name derives
+from the manifest digest; `--release` accepts only a bounded identifier. The SSH
+preflight validates the configured canonical paths, sentinel and ownership,
+available space, and final-name uniqueness without writing remotely. Human and
+schema-version 1 JSON plans enumerate exact files, exclusions, actions, and the
+explicit `mutation: "none"` boundary.
+
+Optional `--deps-check <json>`, `--deps-audit <json>`, and `--tests <json>` gates
+fail unless each record has the expected successful schema/status. Metadata
+stores only the gate kind and file digest, never its content or local path.
+
+### `deploy upload`
+
+Upload repeats the full plan, rechecks the source before and after creating a
+NUL-delimited tar archive, repeats remote preflight, then streams to a unique
+`.uploading-*` directory. The fixed remote Python helper rejects archive links,
+special/unexpected/duplicate/traversal entries and verifies the exact file set,
+sizes, modes, and hashes before writing credential-free metadata and a separate
+completion marker. Only then is the temporary directory atomically renamed to
+the unique final release name. A failed current upload may clean only its own
+contained temporary path, and only after sentinel validation; interrupted
+directories remain visibly incomplete. There is no general delete command.
+
+SSH uses argument arrays, shell-quotes each fixed remote argument, base64url
+encodes read-only requests, enforces `StrictHostKeyChecking=yes` and batch
+key/agent-only authentication, and never emits remote stderr. `--dry-run` stops
+after the read-only plan. Stable JSON success explicitly reports
+`liveChanged: false` and `published: false`.
+
+> **Upload is not publish.** No deploy command switches, writes, renames, or
+> removes the configured live tree. No command imports a database or creates
+> production credentials.
+
+### `deploy status`
+
+Status is read-only and re-hashes every manifest file. It reports `incomplete`
+for interrupted temporary uploads, `invalid` for absent/mismatched completion or
+hash evidence, `verified` for a complete staged release, `current` only when
+matching metadata is detectable in the live tree, and `previous` only when
+publication metadata explicitly records that history. Directory existence alone
+never means verified or published.
+
+---
+
 ## `elementor-cli users`
 
 Read a minimal user inventory through the explicit site's reusable SSH or Compose

@@ -74,6 +74,7 @@ elementor-cli push 42
 | `revisions list\|show\|restore\|create` | Manage page history |
 | `deps inventory\|check\|update\|verify\|install` | Review, select, and reconcile WordPress packages |
 | `users list --site <name>` | Safely list users through WP-CLI |
+| `deploy plan\|upload\|status` | Plan and stage verified releases without publishing |
 
 Use `--help` with any command for detailed options:
 
@@ -98,7 +99,11 @@ sites:
     wpCli:
       type: ssh
       host: deploy@example.com
-      path: /var/www/example/current
+      path: /var/www/example/app
+    deploy:
+      wordpressPath: /var/www/example/app
+      releasesPath: /var/www/example/releases
+      strategy: directory-rename
 
   recovery:
     url: http://localhost:8082
@@ -126,6 +131,41 @@ Compose supports Docker or Podman, custom Compose/environment files, an optional
 project name, and either one-shot `run --rm` or existing-service `exec` mode.
 See [the configuration reference](specs/configuration.md#wp-cli-transports) for
 the complete field and security details.
+
+## Safe Release Uploads
+
+`deploy plan` validates and hashes a local WordPress root and performs a strictly
+read-only SSH preflight. `deploy upload` transfers that exact manifest into a new
+temporary directory below the configured releases root, verifies every remote
+size, mode, and SHA-256 digest, then atomically gives the verified directory its
+final unique name. `deploy status` re-hashes releases instead of treating a
+directory's existence as success.
+
+```bash
+elementor-cli deploy plan --source recovery --site production
+elementor-cli deploy upload --source recovery --site production --dry-run
+elementor-cli deploy upload --source recovery --site production
+elementor-cli deploy status --site production --json
+```
+
+> **Upload does not publish.** These commands never switch or write the live
+> webroot, import a database, generate production secrets, or overwrite a
+> release. Publishing is a separate, deliberately unsupported operation.
+
+Deployment requires an SSH `wpCli` transport whose `path` exactly matches
+`deploy.wordpressPath`, OpenSSH key/agent authentication, a normally verified
+known-host key, local POSIX `tar`, remote Python 3, and a pre-provisioned releases
+directory owned by the deployment account. That directory must contain
+`.elementor-cli-deploy-root.json` with exactly:
+
+```json
+{"schemaVersion":1,"wordpressPath":"/var/www/example/app","releasesPath":"/var/www/example/releases"}
+```
+
+Use `--deps-check`, `--deps-audit`, and/or `--tests` to require recorded successful
+JSON gates. Only each gate's type and SHA-256 digest enter credential-free release
+metadata. See [the deploy command specification](specs/commands.md#elementor-cli-deploy)
+for source exclusions, failure states, and JSON behavior.
 
 ## Safe User Listing
 

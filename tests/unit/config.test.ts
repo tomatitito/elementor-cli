@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ConfigSchema, SiteConfigSchema } from "../../src/types/config.js";
+import {
+  ConfigSchema,
+  DeployConfigSchema,
+  SiteConfigSchema,
+} from "../../src/types/config.js";
 import { readConfig } from "../../src/utils/config-store.js";
 
 describe("WP-CLI configuration", () => {
@@ -155,6 +159,50 @@ describe("WP-CLI configuration", () => {
   ])("rejects %s", (_name, wpCli) => {
     expect(() =>
       SiteConfigSchema.parse({ url: "https://example.com", wpCli }),
+    ).toThrow();
+  });
+});
+
+describe("deploy configuration", () => {
+  test("accepts only canonical, disjoint live and releases paths", () => {
+    expect(
+      DeployConfigSchema.parse({
+        wordpressPath: "/hosting/apps/wordpress/app",
+        releasesPath: "/hosting/apps/wordpress/releases",
+        strategy: "directory-rename",
+      }),
+    ).toEqual({
+      wordpressPath: "/hosting/apps/wordpress/app",
+      releasesPath: "/hosting/apps/wordpress/releases",
+      strategy: "directory-rename",
+    });
+  });
+
+  test.each([
+    ["relative", "hosting/app", "/hosting/releases"],
+    ["traversal", "/hosting/../app", "/hosting/releases"],
+    ["duplicate separators", "/hosting//app", "/hosting/releases"],
+    ["trailing separator", "/hosting/app/", "/hosting/releases"],
+    ["root", "/", "/hosting/releases"],
+    ["nested releases", "/hosting/app", "/hosting/app/releases"],
+    ["nested live", "/hosting/releases/app", "/hosting/releases"],
+  ])("rejects %s deploy paths", (_name, wordpressPath, releasesPath) => {
+    expect(() =>
+      DeployConfigSchema.parse({
+        wordpressPath,
+        releasesPath,
+        strategy: "directory-rename",
+      }),
+    ).toThrow();
+  });
+
+  test("rejects unsupported strategies", () => {
+    expect(() =>
+      DeployConfigSchema.parse({
+        wordpressPath: "/hosting/app",
+        releasesPath: "/hosting/releases",
+        strategy: "symlink",
+      }),
     ).toThrow();
   });
 });
