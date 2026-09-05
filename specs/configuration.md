@@ -36,6 +36,12 @@ sites:
     deploy:
       wordpressPath: /var/www/my-friends-site/app
       releasesPath: /var/www/my-friends-site/releases
+      backupsPath: /var/backups/my-friends-site-deploy
+      configSourcePath: /etc/my-friends-site/wp-config.php
+      maintenancePath: /var/run/my-friends-site/maintenance.html
+      wpCliPath: /usr/local/bin/wp
+      smokeUrls:
+        - https://my-friends-site.de/
       strategy: directory-rename
 
   staging-remote:
@@ -89,7 +95,7 @@ Each site requires a `url` plus REST credentials, a WP-CLI transport, or both:
 | `createRevisions` | No | Auto-create revision before push (default: `false`) |
 | `container` | No | Container config for WP-CLI CSS flush (see below) |
 | `wpCli` | No | Reusable SSH or Compose WP-CLI transport (see below) |
-| `deploy` | No | Canonical SSH release staging paths and fixed strategy (see below) |
+| `deploy` | No | Canonical SSH staging/publication paths and fixed strategy (see below) |
 
 ### Deploy Configuration
 
@@ -97,26 +103,55 @@ Each site requires a `url` plus REST credentials, a WP-CLI transport, or both:
 deploy:
   wordpressPath: /hosting/apps/wordpress/app
   releasesPath: /hosting/apps/wordpress/releases
+  backupsPath: /hosting/backups/wordpress
+  configSourcePath: /hosting/secrets/wordpress/wp-config.php
+  maintenancePath: /hosting/maintenance/wordpress.enabled
+  wpCliPath: /usr/local/bin/wp
+  smokeUrls:
+    - https://www.example.com/
+    - https://www.example.com/wp-json/
   strategy: directory-rename
 ```
 
-Both paths must be canonical absolute paths: no root path, trailing or duplicate
-slashes, `.`/`..`, control characters, or nesting one path inside the other. The
-only accepted strategy is `directory-rename`. The site's `wpCli` transport must
+`wordpressPath` and `releasesPath` support the existing `plan`, `upload`, and
+`status` workflow. Existing configurations remain compatible. To enable
+`publish` and `rollback`, all five additional fields—`backupsPath`,
+`configSourcePath`, `maintenancePath`, `wpCliPath`, and `smokeUrls`—are required.
+Smoke URLs must use HTTPS (one to ten URLs) and cannot contain credentials,
+query parameters, or fragments, so audit and request handling cannot expose
+tokens.
+
+All configured paths must be canonical absolute paths: no root path, trailing or
+duplicate slashes, `.`/`..`, control characters, or nesting one path inside the other. The
+live, releases, and backups roots must be mutually disjoint. `configSourcePath`,
+`maintenancePath`, and `wpCliPath` must be outside every root. The only accepted
+strategy is `directory-rename`. The site's `wpCli` transport must
 be SSH and its `path` must exactly equal `wordpressPath`; commands never accept a
 live destination override.
 
-Before use, an administrator must create `releasesPath`, make it owned by the
-least-privileged deployment account, and create an account-owned regular file
+Before publishing, an administrator must create the three roots and make the
+live/release content and roots owned by the least-privileged deployment account.
+`backupsPath` must be mode `0700`; `configSourcePath` must be an account- or
+root-owned regular file mode `0600`; and `wpCliPath` must be a protected regular
+executable file. The releases root must contain an account-owned regular file
 named `.elementor-cli-deploy-root.json` whose JSON is exactly:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "wordpressPath": "/hosting/apps/wordpress/app",
-  "releasesPath": "/hosting/apps/wordpress/releases"
+  "releasesPath": "/hosting/apps/wordpress/releases",
+  "backupsPath": "/hosting/backups/wordpress",
+  "configSourcePath": "/hosting/secrets/wordpress/wp-config.php",
+  "maintenancePath": "/hosting/maintenance/wordpress.enabled",
+  "wpCliPath": "/usr/local/bin/wp"
 }
 ```
+
+This version-2 sentinel has exactly `schemaVersion` and those six paths;
+`smokeUrls` is not included. Staging-only configurations continue to use the
+version-1 sentinel containing only `schemaVersion`, `wordpressPath`, and
+`releasesPath`.
 
 Every remote operation validates canonical real paths, disjointness, sentinel
 contents, and ownership. OpenSSH uses normal known-host verification and
@@ -125,6 +160,19 @@ key/agent-only batch authentication. POSIX `tar` is required locally and Python
 no general remote deletion operation; it can remove only the temporary directory
 created by its current failed upload, after repeating sentinel and containment
 checks.
+
+`maintenancePath` is an external marker, outside WordPress and all deploy roots.
+The hosting/web-server configuration must independently detect it and return an
+HTTP 503 response. The CLI creates and removes the marker but never configures
+the host, proxy, load balancer, or routing. Publication also expects the live and
+releases roots to share a filesystem so directory renames are atomic.
+
+Each publication gets a mode-`0700` directory under `backupsPath`, containing a
+validated files snapshot, matching database dump, and non-secret
+`publication.json` audit record. Records include identifiers, timestamps,
+manifest/backup/database-input hashes, step results, and rollback state; they do
+not include credentials, config contents, SQL contents, personal data, or remote
+stderr. The deployment lock also lives under `backupsPath`.
 
 ### WP-CLI Transports
 

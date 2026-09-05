@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { basename } from "node:path";
 import { Command } from "commander";
 import {
@@ -8,6 +9,7 @@ import {
   assertSourceUnchanged,
   createUploadArchive,
   inspectDeploySource,
+  inspectSanitizedDatabase,
   releaseNameFor,
   remotePayload,
   validateGateEvidence,
@@ -15,6 +17,7 @@ import {
 import { redactWpCliSecrets } from "../services/wp-cli-transport.js";
 import type { DeployConfig } from "../types/config.js";
 import { getSiteConfig } from "../utils/config-store.js";
+import { confirmAction } from "../utils/prompts.js";
 
 interface SourceOptions {
   source: string;
@@ -28,6 +31,24 @@ interface SourceOptions {
 
 interface UploadOptions extends SourceOptions {
   dryRun?: boolean;
+}
+
+interface PublishOptions {
+  site: string;
+  release: string;
+  database?: string;
+  databaseIsSanitized?: boolean;
+  yes?: boolean;
+  dryRun?: boolean;
+  json?: boolean;
+}
+
+interface RollbackOptions {
+  site: string;
+  publication?: string;
+  yes?: boolean;
+  dryRun?: boolean;
+  json?: boolean;
 }
 
 function errorMessage(error: unknown): string {
@@ -175,7 +196,7 @@ function addSourceOptions(command: Command): Command {
 }
 
 export const deployCommand = new Command("deploy").description(
-  "Plan and stage verified WordPress releases without publishing",
+  "Plan, stage, publish, and roll back verified WordPress releases",
 );
 
 addSourceOptions(
@@ -272,6 +293,181 @@ addSourceOptions(
   }
 });
 
+function printMutationResult(
+  operation: "publish" | "rollback",
+  result: Awaited<ReturnType<DeploySshClient["publish"]>>,
+): void {
+  console.log(
+    `${operation === "publish" ? "Publication" : "Rollback"} '${result.publicationId}': ${result.status}.`,
+  );
+  for (const step of result.completedSteps) console.log(`  ✓ ${step}`);
+  if (result.failedStep) console.log(`Failed step: ${result.failedStep}`);
+  console.log(`Maintenance active: ${result.maintenanceActive ? "yes" : "no"}`);
+  console.log(`Live path: ${result.livePath}`);
+  console.log(`Current release: ${result.currentRelease ?? "not detectable"}`);
+}
+
+deployCommand
+  .command("publish")
+  .description("Publish one verified release with matching file and DB backups")
+  .requiredOption("--site <name>", "Explicit configured SSH destination")
+  .requiredOption("--release <name>", "Verified staged release")
+  .option(
+    "--database <path>",
+    "Explicit sanitized, uncompressed SQL replacement",
+  )
+  .option(
+    "--database-is-sanitized",
+    "Attest that --database contains no production secrets or personal data",
+  )
+  .option("-y, --yes", "Explicitly approve this destructive operation")
+  .option("--dry-run", "Run all read-only publish preflight checks")
+  .option("--json", "Print stable machine-readable JSON")
+  .action(async (options: PublishOptions) => {
+    try {
+      if (!!options.database !== !!options.databaseIsSanitized) {
+        throw new DeployError(
+          "--database and --database-is-sanitized must be supplied together.",
+        );
+      }
+      const target = await deployTarget(options.site);
+      const database = options.database
+        ? await inspectSanitizedDatabase(options.database)
+        : undefined;
+      const request = {
+        site: target.site,
+        release: options.release,
+        databaseRequested: !!database,
+        ...(database
+          ? { databaseSize: database.size, databaseSha256: database.sha256 }
+          : { databaseSize: 0 }),
+      };
+      const plan = await target.client.publishPreflight(target.deploy, request);
+      if (options.dryRun) {
+        const output = {
+          schemaVersion: 1,
+          command: "deploy publish",
+          site: target.site,
+          dryRun: true,
+          mutation: "none",
+          databaseRequested: !!database,
+          ...plan,
+        };
+        if (options.json) console.log(JSON.stringify(output, null, 2));
+        else {
+          console.log(
+            `Publish plan for '${target.site}' / '${options.release}':`,
+          );
+          for (const action of plan.actions as string[])
+            console.log(`  - ${action}`);
+          console.log("DRY RUN: no local or remote mutation was performed.");
+        }
+        process.exitCode = 0;
+        return;
+      }
+      if (!options.yes) {
+        if (!process.stdin.isTTY || !process.stdout.isTTY || options.json)
+          throw new DeployError(
+            "Publishing requires interactive confirmation or explicit --yes.",
+          );
+        if (
+          !(await confirmAction(
+            `Publish '${options.release}' to ${target.deploy.wordpressPath}?`,
+          ))
+        )
+          throw new DeployError("Publication was not confirmed.");
+      }
+      if (database) {
+        const current = await inspectSanitizedDatabase(database.path);
+        if (
+          current.size !== database.size ||
+          current.sha256 !== database.sha256
+        )
+          throw new DeployError("Sanitized database changed after preflight.");
+      }
+      const result = await target.client.publish(
+        target.deploy,
+        { ...request, publicationId: `pub-${randomUUID()}` },
+        database?.path,
+      );
+      const output = {
+        schemaVersion: 1,
+        command: "deploy publish",
+        site: target.site,
+        ...result,
+      };
+      if (options.json) console.log(JSON.stringify(output, null, 2));
+      else printMutationResult("publish", result);
+      process.exitCode = result.status === "completed" ? 0 : 1;
+    } catch (error) {
+      reportError("deploy publish", error, options.json);
+      process.exitCode = 2;
+    }
+  });
+
+deployCommand
+  .command("rollback")
+  .description("Restore a publication's matching file and database snapshots")
+  .requiredOption("--site <name>", "Explicit configured SSH destination")
+  .option("--publication <id>", "Exact publication to restore")
+  .option("-y, --yes", "Explicitly approve this destructive operation")
+  .option("--dry-run", "Run all read-only rollback selection and validation")
+  .option("--json", "Print stable machine-readable JSON")
+  .action(async (options: RollbackOptions) => {
+    try {
+      const target = await deployTarget(options.site);
+      const plan = await target.client.rollbackPreflight(
+        target.deploy,
+        options.publication,
+      );
+      const publication = String(plan.publicationId);
+      if (options.dryRun) {
+        const output = {
+          schemaVersion: 1,
+          command: "deploy rollback",
+          site: target.site,
+          dryRun: true,
+          mutation: "none",
+          ...plan,
+        };
+        if (options.json) console.log(JSON.stringify(output, null, 2));
+        else {
+          console.log(`Rollback plan for publication '${publication}':`);
+          for (const action of plan.actions as string[])
+            console.log(`  - ${action}`);
+          console.log("DRY RUN: no local or remote mutation was performed.");
+        }
+        process.exitCode = 0;
+        return;
+      }
+      if (!options.yes) {
+        if (!process.stdin.isTTY || !process.stdout.isTTY || options.json)
+          throw new DeployError(
+            "Rollback requires interactive confirmation or explicit --yes.",
+          );
+        if (
+          !(await confirmAction(
+            `Restore matching files and database from '${publication}'?`,
+          ))
+        )
+          throw new DeployError("Rollback was not confirmed.");
+      }
+      const result = await target.client.rollback(target.deploy, publication);
+      const output = {
+        schemaVersion: 1,
+        command: "deploy rollback",
+        site: target.site,
+        ...result,
+      };
+      if (options.json) console.log(JSON.stringify(output, null, 2));
+      else printMutationResult("rollback", result);
+      process.exitCode = result.status === "rolled-back" ? 0 : 1;
+    } catch (error) {
+      reportError("deploy rollback", error, options.json);
+      process.exitCode = 2;
+    }
+  });
+
 deployCommand
   .command("status")
   .description(
@@ -296,6 +492,18 @@ deployCommand
         console.log(
           `Current release: ${status.currentRelease ?? "not detectable"}`,
         );
+        console.log(
+          `Maintenance active: ${status.maintenanceActive ? "yes" : "no"}`,
+        );
+        console.log(
+          `Operation lock active: ${status.lockActive ? "yes" : "no"}`,
+        );
+        if (status.publications.length === 0) console.log("Publications: none");
+        for (const publication of status.publications) {
+          console.log(
+            `  ${publication.id} ${publication.release} [${publication.status}]${publication.failedStep ? ` failed: ${publication.failedStep}` : ""}`,
+          );
+        }
         if (status.releases.length === 0) console.log("Releases: none");
         for (const release of status.releases) {
           console.log(

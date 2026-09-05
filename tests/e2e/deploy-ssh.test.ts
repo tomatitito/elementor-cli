@@ -8,7 +8,20 @@ import { SshWpCliConfigSchema } from "../../src/types/config.js";
 const host = process.env.ELEMENTOR_CLI_DEPLOY_E2E_HOST;
 const livePath = process.env.ELEMENTOR_CLI_DEPLOY_E2E_LIVE_PATH;
 const releasesPath = process.env.ELEMENTOR_CLI_DEPLOY_E2E_RELEASES_PATH;
+const backupsPath = process.env.ELEMENTOR_CLI_DEPLOY_E2E_BACKUPS_PATH;
+const configSourcePath =
+  process.env.ELEMENTOR_CLI_DEPLOY_E2E_CONFIG_SOURCE_PATH;
+const maintenancePath = process.env.ELEMENTOR_CLI_DEPLOY_E2E_MAINTENANCE_PATH;
+const wpCliPath = process.env.ELEMENTOR_CLI_DEPLOY_E2E_WP_CLI_PATH;
+const smokeUrl = process.env.ELEMENTOR_CLI_DEPLOY_E2E_SMOKE_URL;
 const enabled = !!host && !!livePath && !!releasesPath;
+const publishEnabled =
+  enabled &&
+  !!backupsPath &&
+  !!configSourcePath &&
+  !!maintenancePath &&
+  !!wpCliPath &&
+  !!smokeUrl;
 
 async function liveDigest(): Promise<string> {
   const validatedHost = SshWpCliConfigSchema.parse({
@@ -78,12 +91,36 @@ test.skipIf(!enabled)(
         "safe\n",
       );
       const config = join(directory, "config.yaml");
+      const publishConfig = publishEnabled
+        ? `      backupsPath: ${backupsPath}\n      configSourcePath: ${configSourcePath}\n      maintenancePath: ${maintenancePath}\n      wpCliPath: ${wpCliPath}\n      smokeUrls:\n        - ${smokeUrl}\n`
+        : "";
       await writeFile(
         config,
-        `sites:\n  disposable:\n    url: https://invalid.example\n    wpCli:\n      type: ssh\n      host: ${host}\n      path: ${livePath}\n    deploy:\n      wordpressPath: ${livePath}\n      releasesPath: ${releasesPath}\n      strategy: directory-rename\n`,
+        `sites:\n  disposable:\n    url: https://invalid.example\n    wpCli:\n      type: ssh\n      host: ${host}\n      path: ${livePath}\n    deploy:\n      wordpressPath: ${livePath}\n      releasesPath: ${releasesPath}\n${publishConfig}      strategy: directory-rename\n`,
       );
       const before = await liveDigest();
       const release = `e2e-${randomUUID()}`;
+      const depsCheck = join(directory, "deps-check.json");
+      const depsAudit = join(directory, "deps-audit.json");
+      if (publishEnabled) {
+        await writeFile(
+          depsCheck,
+          JSON.stringify({
+            schemaVersion: 1,
+            command: "deps check",
+            status: "checked",
+            reports: [],
+          }),
+        );
+        await writeFile(
+          depsAudit,
+          JSON.stringify({
+            schemaVersion: 1,
+            command: "deps audit",
+            status: "clean",
+          }),
+        );
+      }
       const result = Bun.spawnSync(
         [
           "bun",
@@ -97,6 +134,9 @@ test.skipIf(!enabled)(
           "disposable",
           "--release",
           release,
+          ...(publishEnabled
+            ? ["--deps-check", depsCheck, "--deps-audit", depsAudit]
+            : []),
           "--json",
         ],
         {
@@ -108,6 +148,60 @@ test.skipIf(!enabled)(
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout.toString()).published).toBe(false);
       expect(await liveDigest()).toBe(before);
+
+      if (publishEnabled) {
+        const publish = Bun.spawnSync(
+          [
+            "bun",
+            "run",
+            "src/index.ts",
+            "deploy",
+            "publish",
+            "--site",
+            "disposable",
+            "--release",
+            release,
+            "--yes",
+            "--json",
+          ],
+          {
+            cwd: join(import.meta.dir, "../.."),
+            env: { ...process.env, ELEMENTOR_CLI_CONFIG: config },
+          },
+        );
+        expect(publish.stderr.toString()).toBe("");
+        expect(publish.exitCode).toBe(0);
+        const publication = JSON.parse(publish.stdout.toString());
+        expect(publication.status).toBe("completed");
+        expect(publication.maintenanceActive).toBe(false);
+        expect(publication.currentRelease).toBe(release);
+
+        const rollback = Bun.spawnSync(
+          [
+            "bun",
+            "run",
+            "src/index.ts",
+            "deploy",
+            "rollback",
+            "--site",
+            "disposable",
+            "--publication",
+            publication.publicationId,
+            "--yes",
+            "--json",
+          ],
+          {
+            cwd: join(import.meta.dir, "../.."),
+            env: { ...process.env, ELEMENTOR_CLI_CONFIG: config },
+          },
+        );
+        expect(rollback.stderr.toString()).toBe("");
+        expect(rollback.exitCode).toBe(0);
+        expect(JSON.parse(rollback.stdout.toString()).status).toBe(
+          "rolled-back",
+        );
+        expect(await liveDigest()).toBe(before);
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

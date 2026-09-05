@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   ConfigSchema,
   DeployConfigSchema,
+  DeployPublishConfigSchema,
   SiteConfigSchema,
 } from "../../src/types/config.js";
 import { readConfig } from "../../src/utils/config-store.js";
@@ -204,5 +205,44 @@ describe("deploy configuration", () => {
         strategy: "symlink",
       }),
     ).toThrow();
+  });
+
+  test("requires every protected publish path and HTTPS smoke URL for mutation", () => {
+    const publish = {
+      wordpressPath: "/hosting/app",
+      releasesPath: "/hosting/releases",
+      backupsPath: "/hosting/backups",
+      configSourcePath: "/hosting/protected/wp-config.php",
+      maintenancePath: "/hosting/maintenance/enabled.html",
+      wpCliPath: "/usr/local/bin/wp",
+      smokeUrls: ["https://example.com/", "https://example.com/wp-json/"],
+      strategy: "directory-rename" as const,
+    };
+    expect(DeployPublishConfigSchema.parse(publish)).toEqual(publish);
+    expect(() =>
+      DeployPublishConfigSchema.parse({
+        wordpressPath: publish.wordpressPath,
+        releasesPath: publish.releasesPath,
+        strategy: publish.strategy,
+      }),
+    ).toThrow("required for publish and rollback");
+    expect(() =>
+      DeployPublishConfigSchema.parse({
+        ...publish,
+        smokeUrls: ["http://example.com/"],
+      }),
+    ).toThrow("must use HTTPS");
+    expect(() =>
+      DeployPublishConfigSchema.parse({
+        ...publish,
+        smokeUrls: ["https://user:secret@example.com/?token=secret"],
+      }),
+    ).toThrow("must not contain credentials");
+    expect(() =>
+      DeployPublishConfigSchema.parse({
+        ...publish,
+        backupsPath: "/hosting/releases/backups",
+      }),
+    ).toThrow("must be disjoint");
   });
 });

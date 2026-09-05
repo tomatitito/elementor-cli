@@ -190,8 +190,13 @@ export interface ContainerConfig {
 }
 
 export interface DeployConfig {
-  wordpressPath: string;             // Canonical live path (never mutated by deploy)
-  releasesPath: string;              // Canonical, disjoint staging root
+  wordpressPath: string;             // Canonical live WordPress root
+  releasesPath: string;              // Canonical, disjoint release root
+  backupsPath?: string;              // 0700 matching file/DB publication backups
+  configSourcePath?: string;          // Protected server-side wp-config.php (0600)
+  maintenancePath?: string;           // External hosting maintenance marker
+  wpCliPath?: string;                 // Protected server-side WP-CLI executable
+  smokeUrls?: string[];               // HTTPS post-publish/rollback checks
   strategy: "directory-rename";
 }
 
@@ -200,7 +205,7 @@ export interface SiteConfig {
   username: string;
   appPassword: string;
   container?: ContainerConfig;       // Container for WP-CLI (CSS flush)
-  deploy?: DeployConfig;             // Non-publishing SSH release staging
+  deploy?: DeployConfig;             // SSH staging and guarded publication
   createRevisions?: boolean;         // Auto-create revision before push (default: false)
 }
 
@@ -219,6 +224,21 @@ export interface Config {
   pagesDir: string;
 }
 ```
+
+The optional publish-capable fields are required as a complete set by
+`deploy publish` and `deploy rollback`; older plan/upload/status-only config is
+still valid. Live, releases, and backups are canonical, disjoint roots owned by
+the deploy account; config, maintenance, and WP-CLI paths remain outside them.
+The remote release-root sentinel is schema version 2 and contains exactly
+`schemaVersion`, `wordpressPath`, `releasesPath`, `backupsPath`,
+`configSourcePath`, `maintenancePath`, and `wpCliPath` (not `smokeUrls`).
+
+The server layout is deliberately flat: `wordpressPath` directly contains
+`index.php`, `wp-admin/`, `wp-includes/`, and `wp-content/`. Publication audit
+records and matching file/database backup pairs are stored in per-publication
+mode-`0700` directories under `backupsPath`; protected production config is
+copied into the promoted tree as mode `0600`. Hosting, not the CLI, must map the
+external maintenance marker to a 503 response.
 
 **src/types/template.ts:**
 ```typescript

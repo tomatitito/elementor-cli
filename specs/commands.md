@@ -38,7 +38,7 @@ elementor-cli config test [name]
 
 ## `elementor-cli deploy`
 
-Plan, stage, and inspect clean WordPress release candidates over SSH. All three
+Plan, stage, publish, roll back, and inspect clean WordPress releases over SSH. All
 commands require an explicit configured site; there is no arbitrary destination
 option and no default-site fallback.
 
@@ -47,6 +47,11 @@ elementor-cli deploy plan --source recovery --site production
 elementor-cli deploy plan --source recovery --site production --json
 elementor-cli deploy upload --source recovery --site production --dry-run
 elementor-cli deploy upload --source recovery --site production
+elementor-cli deploy publish --site production --release <release> --dry-run
+elementor-cli deploy publish --site production --release <release> --yes
+elementor-cli deploy publish --site production --release <release> --database sanitized.sql --database-is-sanitized --yes
+elementor-cli deploy rollback --site production --publication <publication-id> --yes
+elementor-cli deploy rollback --site production --dry-run
 elementor-cli deploy status --site production
 ```
 
@@ -90,9 +95,64 @@ key/agent-only authentication, and never emits remote stderr. `--dry-run` stops
 after the read-only plan. Stable JSON success explicitly reports
 `liveChanged: false` and `published: false`.
 
-> **Upload is not publish.** No deploy command switches, writes, renames, or
-> removes the configured live tree. No command imports a database or creates
-> production credentials.
+> **Upload is not publish.** Upload never changes the live tree. Only the
+> separately confirmed `publish` and `rollback` commands cross that boundary.
+
+### `deploy publish`
+
+`publish --site <name> --release <name>` requires an interactive confirmation;
+non-interactive and JSON callers must pass `--yes`. Database replacement is
+optional, but `--database <uncompressed-sql>` and `--database-is-sanitized` must
+always be supplied together. The attestation means the input contains no
+production secrets or personal data; the CLI hashes and rechecks it after
+preflight and records the hash, never its contents. `--dry-run` performs every
+read-only preflight and reports `mutation: "none"`; it does not create a lock,
+marker, backup, record, file, or database change, and does not require `--yes`.
+
+Preflight re-verifies completion metadata, hashes, exact WordPress-root layout,
+forbidden files and executable uploads; canonical paths, sentinel, ownership and
+modes; same-filesystem rename support; backup capacity; protected config and
+WP-CLI; inactive maintenance and lock state; sanitized DB evidence; and successful
+`deps check` plus `deps audit` evidence embedded by upload. Publish therefore
+requires candidates uploaded with both `--deps-check` and `--deps-audit`; it also
+re-runs core/plugin/theme checksum checks against the promoted tree. The live
+layout after promotion is exactly:
+
+```text
+<wordpressPath>/
+├── index.php
+├── wp-admin/
+├── wp-includes/
+└── wp-content/
+```
+
+The transaction acquires an exclusive deployment lock, enables the external
+maintenance marker, creates and hash-validates a matching live-files snapshot
+and WP-CLI database dump, copies the server-side `wp-config.php` as mode `0600`,
+renames (never overwrites in place) the old live tree and verified candidate,
+optionally imports the sanitized SQL, clears WordPress and Elementor caches,
+runs WP core/plugin/theme checksum audits, performs every configured HTTPS smoke
+request, removes maintenance, and completes the audit record. Hosting must route
+the marker to a 503 response; the CLI does **not** configure hosting.
+
+Interruptions and failures leave a step-by-step publication record and may leave
+maintenance active once the live move began; output always states failed step,
+live path/current release, and maintenance state. The lock prevents concurrent
+publish/rollback and is normally released in cleanup. Never manually remove a
+stale lock until `deploy status` and the publication record have been inspected
+and the operator has verified that no deploy process is still running.
+
+### `deploy rollback`
+
+`rollback --site <name> --publication <id>` selects that exact publication and
+validates its recorded, matching file snapshot and database dump (including both
+hashes). Without `--publication`, it selects the latest eligible completed or
+failed publication, displays that choice in the plan, and still requires
+interactive confirmation; scripts must use `--yes`. `--dry-run` is mutation-free
+and shows the exact selection/actions. Rollback enables external maintenance,
+restores both snapshots (never files alone), clears caches, repeats dependency
+checksum/audit and HTTPS smoke checks, removes maintenance, and records rollback
+status. Already rolled-back or incomplete/invalid backup records are ineligible.
 
 ### `deploy status`
 
@@ -102,6 +162,34 @@ hash evidence, `verified` for a complete staged release, `current` only when
 matching metadata is detectable in the live tree, and `previous` only when
 publication metadata explicitly records that history. Directory existence alone
 never means verified or published.
+
+With publish configuration, status also reports the exact current live path and
+release, maintenance and lock flags, and redacted publication rows (ID, release,
+status, timestamp, failed step, and rollback status). Per-publication
+`publication.json` records contain site/publication/release IDs, timestamps,
+manifest hash, matching backup identifiers and hashes, completed/failed steps,
+database-input hash when used, and rollback state. They never contain SQL,
+credentials, protected config, personal data, or remote stderr.
+
+Publish and rollback exit `0` only when the operation and post-checks complete,
+`1` when mutation starts but a step fails (including failed rollback), and `2`
+for invalid configuration/options, connection failure, refusal, or preflight
+failure before mutation.
+
+#### Disaster recovery
+
+1. Stop traffic or ensure hosting is returning 503 for `maintenancePath`; do not
+   delete a lock while its process may still run.
+2. Run `deploy status --site <name> --json`, inspect the current path,
+   maintenance/lock flags, and the affected `publication.json` on the server.
+3. Verify no publication process remains. Only then may an operator remove a
+   demonstrably stale `.elementor-cli-publish.lock` directory.
+4. Run `deploy rollback --site <name> --publication <id> --dry-run`, then repeat
+   with `--yes` to restore that publication's matching files and DB.
+5. Confirm dependency audits and all HTTPS smoke URLs pass and maintenance is
+   inactive. If CLI rollback cannot run, keep the 503 active and have the host
+   administrator restore the same `files` and `database.sql` pair; rotate DB
+   credentials and WordPress salts separately after compromise.
 
 ---
 

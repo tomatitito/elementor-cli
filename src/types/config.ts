@@ -2,7 +2,7 @@ import { z } from "zod";
 import { DEFAULT_PAGES_DIR, DEFAULT_STAGING_DIR } from "../utils/constants.js";
 
 function isCanonicalRemotePath(path: string): boolean {
-  if (!path.startsWith("/") || path === "/" || /[\0\r\n]/.test(path))
+  if (!path.startsWith("/") || path === "/" || hasUnsafeConfigText(path))
     return false;
   const components = path.split("/");
   return (
@@ -13,6 +13,20 @@ function isCanonicalRemotePath(path: string): boolean {
         : component !== "" && component !== "." && component !== "..",
     )
   );
+}
+
+function hasUnsafeConfigText(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (
+      codePoint <= 0x1f ||
+      (codePoint >= 0x7f && codePoint <= 0x9f) ||
+      (codePoint >= 0x202a && codePoint <= 0x202e) ||
+      (codePoint >= 0x2066 && codePoint <= 0x2069)
+    )
+      return true;
+  }
+  return false;
 }
 
 const identifier = z
@@ -33,7 +47,7 @@ const remoteWordPressPath = z
   .min(1)
   .refine((path) => path.startsWith("/"), "must be an absolute path")
   .refine(
-    (path) => !/[\0\r\n]/.test(path),
+    (path) => !hasUnsafeConfigText(path),
     "must not contain control characters",
   );
 
@@ -79,18 +93,87 @@ export const DeployConfigSchema = z
   .object({
     wordpressPath: canonicalRemoteDeployPath,
     releasesPath: canonicalRemoteDeployPath,
+    backupsPath: canonicalRemoteDeployPath.optional(),
+    configSourcePath: canonicalRemoteDeployPath.optional(),
+    maintenancePath: canonicalRemoteDeployPath.optional(),
+    wpCliPath: canonicalRemoteDeployPath.optional(),
+    smokeUrls: z
+      .array(
+        z
+          .string()
+          .url()
+          .refine((url) => url.startsWith("https://"), "must use HTTPS")
+          .refine((url) => {
+            const parsed = new URL(url);
+            return (
+              !parsed.username &&
+              !parsed.password &&
+              !parsed.search &&
+              !parsed.hash
+            );
+          }, "must not contain credentials, query parameters, or fragments"),
+      )
+      .min(1)
+      .max(10)
+      .optional(),
     strategy: z.literal("directory-rename"),
   })
   .superRefine((deploy, context) => {
-    const live = `${deploy.wordpressPath}/`;
-    const releases = `${deploy.releasesPath}/`;
-    if (live.startsWith(releases) || releases.startsWith(live)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "wordpressPath and releasesPath must be disjoint",
-      });
+    const roots: Array<readonly [string, string]> = [
+      ["wordpressPath", deploy.wordpressPath],
+      ["releasesPath", deploy.releasesPath],
+      ...(deploy.backupsPath
+        ? ([["backupsPath", deploy.backupsPath]] as const)
+        : []),
+    ];
+    for (let left = 0; left < roots.length; left++) {
+      for (let right = left + 1; right < roots.length; right++) {
+        const [leftName, leftPath] = roots[left];
+        const [rightName, rightPath] = roots[right];
+        if (
+          `${leftPath}/`.startsWith(`${rightPath}/`) ||
+          `${rightPath}/`.startsWith(`${leftPath}/`)
+        ) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${leftName} and ${rightName} must be disjoint`,
+          });
+        }
+      }
+    }
+    for (const [name, path] of [
+      ["configSourcePath", deploy.configSourcePath],
+      ["maintenancePath", deploy.maintenancePath],
+      ["wpCliPath", deploy.wpCliPath],
+    ] as const) {
+      if (path && roots.some(([, root]) => `${path}/`.startsWith(`${root}/`))) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${name} must be outside deploy roots`,
+        });
+      }
     }
   });
+
+export const DeployPublishConfigSchema = DeployConfigSchema.superRefine(
+  (deploy, context) => {
+    for (const field of [
+      "backupsPath",
+      "configSourcePath",
+      "maintenancePath",
+      "wpCliPath",
+      "smokeUrls",
+    ] as const) {
+      if (deploy[field] === undefined) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: "is required for publish and rollback",
+        });
+      }
+    }
+  },
+);
 
 export const ContainerConfigSchema = z.object({
   runtime: z.enum(["docker", "podman"]).default("docker"),

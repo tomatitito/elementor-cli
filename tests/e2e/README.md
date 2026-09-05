@@ -120,7 +120,7 @@ docker compose down -v
 docker compose up -d
 ```
 
-## Disposable SSH Deploy Test
+## Disposable SSH Deploy Tests
 
 `deploy-ssh.test.ts` targets a separately provisioned disposable SSH filesystem
 and hashes the live directory before and after a real upload. Set all three
@@ -138,3 +138,40 @@ contain the matching `.elementor-cli-deploy-root.json` sentinel documented in
 `specs/configuration.md`. The target is intentionally not cleaned by the CLI:
 there is no unrestricted deletion API. Destroy the disposable target after the
 test. Without these variables, the test is explicitly skipped.
+
+The checked-in SSH E2E always exercises upload safety and additionally executes
+a successful publish plus matching rollback when these variables are also set:
+
+```bash
+ELEMENTOR_CLI_DEPLOY_E2E_BACKUPS_PATH=/tmp/deploy-test/backups \
+ELEMENTOR_CLI_DEPLOY_E2E_CONFIG_SOURCE_PATH=/tmp/deploy-test/protected/wp-config.php \
+ELEMENTOR_CLI_DEPLOY_E2E_MAINTENANCE_PATH=/tmp/deploy-test/maintenance/enabled.html \
+ELEMENTOR_CLI_DEPLOY_E2E_WP_CLI_PATH=/usr/local/bin/wp \
+ELEMENTOR_CLI_DEPLOY_E2E_SMOKE_URL=https://disposable-host.example/ \
+bun test tests/e2e/deploy-ssh.test.ts
+```
+
+Publish/rollback E2E requires optional, separately provisioned infrastructure that CI and local
+Docker may not provide: a disposable SSH host and database, same-filesystem live
+and releases roots, a mode-`0700` backups root, mode-`0600` protected production
+config, protected WP-CLI executable, HTTPS endpoints, and hosting routing that
+returns 503 while the external maintenance marker exists. The CLI does not
+configure that routing. Never point these tests at a real site.
+
+When that infrastructure is available, coverage must include successful publish,
+failed sanitized DB import, failed HTTPS smoke check/interruption state, explicit
+rollback by publication ID, and omitted-ID selection of the latest eligible
+publication followed by confirmation. Assert the exact flat live WordPress root,
+matching hash-validated files+DB backups, dependency checksum/audit execution,
+redacted status/audit records, lock exclusion, maintenance state, and exit codes
+0/1/2. Dry-run assertions must hash files and DB before/after and prove no lock,
+marker, backup, publication record, rename, SQL import, or other mutation occurs.
+
+Provision a schema-version-2 sentinel with exactly `schemaVersion`,
+`wordpressPath`, `releasesPath`, `backupsPath`, `configSourcePath`,
+`maintenancePath`, and `wpCliPath`; do not include `smokeUrls`. After an
+interrupted test, inspect `deploy status`, its publication record, and host
+processes before manually clearing a stale lock. Always destroy the entire
+disposable filesystem and database after the run. Tests must skip with a clear
+reason when optional environment variables or hosting/database infrastructure
+are unavailable.

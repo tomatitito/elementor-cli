@@ -74,7 +74,7 @@ elementor-cli push 42
 | `revisions list\|show\|restore\|create` | Manage page history |
 | `deps inventory\|check\|update\|verify\|install` | Review, select, and reconcile WordPress packages |
 | `users list --site <name>` | Safely list users through WP-CLI |
-| `deploy plan\|upload\|status` | Plan and stage verified releases without publishing |
+| `deploy plan\|upload\|publish\|rollback\|status` | Stage, publish, roll back, and inspect verified releases |
 
 Use `--help` with any command for detailed options:
 
@@ -103,6 +103,12 @@ sites:
     deploy:
       wordpressPath: /var/www/example/app
       releasesPath: /var/www/example/releases
+      backupsPath: /var/backups/example-deploy
+      configSourcePath: /etc/example/wp-config.php
+      maintenancePath: /var/run/example/maintenance.html
+      wpCliPath: /usr/local/bin/wp
+      smokeUrls:
+        - https://example.com/
       strategy: directory-rename
 
   recovery:
@@ -132,7 +138,7 @@ project name, and either one-shot `run --rm` or existing-service `exec` mode.
 See [the configuration reference](specs/configuration.md#wp-cli-transports) for
 the complete field and security details.
 
-## Safe Release Uploads
+## Safe Releases and Publication
 
 `deploy plan` validates and hashes a local WordPress root and performs a strictly
 read-only SSH preflight. `deploy upload` transfers that exact manifest into a new
@@ -145,26 +151,53 @@ directory's existence as success.
 elementor-cli deploy plan --source recovery --site production
 elementor-cli deploy upload --source recovery --site production --dry-run
 elementor-cli deploy upload --source recovery --site production
+elementor-cli deploy publish --site production --release <release> --dry-run
+elementor-cli deploy publish --site production --release <release> --yes
+elementor-cli deploy publish --site production --release <release> \
+  --database recovery/sanitized-production.sql --database-is-sanitized --yes
+elementor-cli deploy rollback --site production --publication <publication-id> --dry-run
+elementor-cli deploy rollback --site production --publication <publication-id> --yes
 elementor-cli deploy status --site production --json
 ```
 
-> **Upload does not publish.** These commands never switch or write the live
-> webroot, import a database, generate production secrets, or overwrite a
-> release. Publishing is a separate, deliberately unsupported operation.
+Upload remains non-publishing. `publish` is the explicit destructive boundary:
+it validates a staged release, creates and validates matching file and database
+backups, installs protected server-side configuration, atomically renames the
+candidate into the configured live root, optionally imports an explicitly
+attested sanitized database, clears caches, verifies dependency checksums, and
+runs configured HTTPS smoke checks. `rollback` always restores the matching file
+and database snapshots from one publication. Both require interactive
+confirmation or `--yes`; `--dry-run` performs preflight/selection only and is
+mutation-free. Exit codes are 0 for completed operation and checks, 1 for a
+publish/rollback that began mutation but failed, and 2 for configuration,
+connection, or pre-mutation/preflight errors.
 
 Deployment requires an SSH `wpCli` transport whose `path` exactly matches
 `deploy.wordpressPath`, OpenSSH key/agent authentication, a normally verified
 known-host key, local POSIX `tar`, remote Python 3, and a pre-provisioned releases
-directory owned by the deployment account. That directory must contain
+directory owned by the deployment account. Publishing additionally requires
+the deploy account to own the live/release/backup material, a mode `0700`
+backups root, and protected config source mode `0600`. All roots must be
+canonical and disjoint; config, maintenance marker, and WP-CLI executable must
+be outside them. The releases directory must contain
 `.elementor-cli-deploy-root.json` with exactly:
 
 ```json
-{"schemaVersion":1,"wordpressPath":"/var/www/example/app","releasesPath":"/var/www/example/releases"}
+{"schemaVersion":2,"wordpressPath":"/var/www/example/app","releasesPath":"/var/www/example/releases","backupsPath":"/var/backups/example-deploy","configSourcePath":"/etc/example/wp-config.php","maintenancePath":"/var/run/example/maintenance.html","wpCliPath":"/usr/local/bin/wp"}
 ```
+
+`smokeUrls` is deliberately not part of the version-2 sentinel. The resulting
+live root is exactly `app/index.php`, `app/wp-admin/`, `app/wp-includes/`, and
+`app/wp-content/`—never a nested source directory. Hosting must be separately
+configured to turn the external maintenance marker into an HTTP 503 response;
+the CLI only creates/removes the marker and does not configure the web server.
+Use `deploy status` for current live path, maintenance/lock state, release
+verification, and redacted publication audit status.
 
 Use `--deps-check`, `--deps-audit`, and/or `--tests` to require recorded successful
 JSON gates. Only each gate's type and SHA-256 digest enter credential-free release
-metadata. See [the deploy command specification](specs/commands.md#elementor-cli-deploy)
+metadata. Publication requires both dependency gates, so a publishable candidate
+must be uploaded with `--deps-check` and `--deps-audit`. See [the deploy command specification](specs/commands.md#elementor-cli-deploy)
 for source exclusions, failure states, and JSON behavior.
 
 ## Safe User Listing
