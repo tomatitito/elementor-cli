@@ -439,6 +439,49 @@ tsc --noEmit
 bun run biome format --write .
 ```
 
+## Release and Self-Update
+
+Releases are created automatically when the version in `package.json` changes on
+`main`. The release workflow builds platform binaries, creates a matching `vX.Y.Z`
+tag, and publishes compressed binaries to GitHub Releases.
+
+```bash
+# Update package.json without creating a local tag
+npm pkg set version=0.5.0
+
+# Update CHANGELOG.md, verify the release, then push
+bun install
+bun run test
+bun run typecheck
+git add package.json CHANGELOG.md README.md
+git commit -m "Release v0.5.0"
+git push origin main
+
+# Monitor and verify the GitHub release
+gh run watch
+gh release view v0.5.0
+```
+
+Do not create or push the release tag manually; GitHub Actions owns tag and
+release creation.
+
+Install the latest published binary using an existing `elementor-cli` binary:
+
+```bash
+# Ensure the self-update destination takes PATH precedence
+export PATH="$HOME/.local/bin:$PATH"
+
+# Check, install, and verify
+elementor-cli update --check
+elementor-cli update
+hash -r
+elementor-cli --version
+```
+
+Install a specific release with `elementor-cli update --version v0.5.0`. The
+updater installs to `~/.local/bin/elementor-cli`; use `command -v elementor-cli`
+to confirm that path is active.
+
 ## Documentation
 
 Detailed documentation is available in the `/specs` directory:

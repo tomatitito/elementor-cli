@@ -5,17 +5,26 @@ All notable changes to elementor-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0] - 2026-02-15
+## [0.5.0] - 2026-09-07
 
 ### Added
 
-- **Configurable revision creation on push** - New `createRevisions` site config option to automatically create backups before pushing. Set to `true` for production sites, `false` (default) for fast iteration on staging. (#XX)
-- **Push revision flags** - Added `--revision` / `-r` and `--no-revision` flags to the `push` command to override site config on a per-push basis.
-- **Production safety warning** - When pushing to sites with "prod" in the name without revision creation, the CLI now warns and prompts for confirmation.
+- **Safe deployment workflow** - Added guarded planning, staged upload, publication, rollback, status, integrity verification, database backup, and smoke-check commands.
+- **Dependency management** - Added dependency inventory, installation, integrity checks, update planning and application, and vulnerability auditing through reusable WP-CLI transports.
+- **Safe user inventory** - Added site-aware user listing with fixed field allowlists, optional email inclusion, and private JSON output.
+- **Configurable push revisions** - Added the `createRevisions` site option, `--revision` and `--no-revision` overrides, and production safety confirmation.
+- **Elementor version preservation** - Pull and push now round-trip the `_elementor_version` post meta value.
+- **Preview E2E coverage** - Added Docker-based preview workflow coverage.
 
 ### Changed
 
-- The `push` command help text now documents revision behavior and configuration examples.
+- Updated compatibility tracking through Elementor 4.2.4 and WordPress 7.1.
+- Expanded command, configuration, API, and deployment documentation.
+
+### Fixed
+
+- Preserved complete local page data after push.
+- Corrected default revision configuration, page deletion semantics, database dump paths, dependency checksums, and E2E overwrite behavior.
 
 ## [0.4.1] - 2026-02-14
 
