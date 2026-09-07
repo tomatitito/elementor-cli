@@ -273,7 +273,7 @@ describe("E2E: pages commands", () => {
       ]);
 
       expect(exitCode).toBe(0);
-      expect(output).toContain(`Deleted page ${pageId}`);
+      expect(output).toContain(`Permanently deleted page ${pageId}`);
     });
 
     test("fails for non-existent page", async () => {

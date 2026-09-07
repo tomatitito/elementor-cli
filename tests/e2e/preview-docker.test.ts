@@ -4,8 +4,7 @@
  * These tests actually spin up and manage Docker containers to test:
  * - preview start
  * - preview stop
- * - preview stop --clean
- * - Data persistence
+ * - Data persistence across preview stop/start
  *
  * Note: These tests require Docker to be available and will use ports 8889/3307
  * to avoid conflicts with the main test environment on 8888/3306
@@ -120,7 +119,7 @@ sites:
     url: http://localhost:8889
     username: admin
     appPassword: test123
-preview:
+staging:
   path: .
   service: wordpress
   url: http://localhost:8889
@@ -223,7 +222,6 @@ volumes:
 
       expect(exitCode).toBe(0);
       expect(output).toContain("stopped");
-      expect(output).toContain("Data preserved");
 
       // Verify containers are stopped
       const { stdout } = await dockerCompose(["ps"]);
@@ -256,60 +254,11 @@ volumes:
       expect(checkExitCode).toBe(0); // File exists
     }, 120000);
 
-    test("preview stop --clean --force removes all data", async () => {
-      const { output, exitCode } = await runCli([
-        "preview",
-        "stop",
-        "--clean",
-        "--force",
-      ]);
+    test("preview stop after restart", async () => {
+      const { output, exitCode } = await runCli(["preview", "stop"]);
 
       expect(exitCode).toBe(0);
       expect(output).toContain("stopped");
-      expect(output).toContain("all data removed");
-      expect(output).toContain("fresh WordPress");
-
-      // Verify volumes are removed
-      const { stdout } = await dockerCompose(["ps"]);
-      expect(stdout).not.toContain("Up");
-    }, 30000);
-
-    test("preview start after clean creates fresh environment", async () => {
-      // Start again
-      const { exitCode } = await runCli(["preview", "start"]);
-      expect(exitCode).toBe(0);
-
-      // Wait for WordPress
-      const isReady = await waitForWordPress(8889, 120000);
-      expect(isReady).toBe(true);
-
-      // Check if marker file is gone (fresh environment)
-      const checkProc = spawn({
-        cmd: [
-          "docker",
-          "exec",
-          "elementor-cli-preview-test-wp",
-          "test",
-          "-f",
-          "/var/www/html/test-marker.txt",
-        ],
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const checkExitCode = await checkProc.exited;
-      expect(checkExitCode).not.toBe(0); // File doesn't exist (fresh install)
-    }, 120000);
-
-    test("preview stop --clean with confirmation", async () => {
-      // Test with confirmation (send 'y')
-      const { output, exitCode } = await runCli(
-        ["preview", "stop", "--clean"],
-        { input: "y\n" },
-      );
-
-      expect(exitCode).toBe(0);
-      expect(output).toContain("Remove all preview environment data");
-      expect(output).toContain("all data removed");
     }, 30000);
   });
 });
