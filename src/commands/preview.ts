@@ -75,12 +75,15 @@ previewCommand
   .command("start")
   .description("Start staging environment (docker compose up -d)")
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--env-file <path>", "Path to a Compose environment file")
+  .option("--project-name <name>", "Compose project name")
   .addHelpText(
     "after",
     `
 Examples:
   $ elementor-cli preview start
   $ elementor-cli preview start --compose-file ./my-docker/docker-compose.yml
+  $ elementor-cli preview start --compose-file ./docker/recovery.yml --env-file ./recovery/.env --project-name recovery
 
 See also:
   elementor-cli preview stop      Stop the environment
@@ -89,11 +92,11 @@ See also:
   )
   .action(async (options) => {
     try {
-      const docker = await DockerManager.create(options.composeFile);
+      const docker = await DockerManager.create(options);
 
       if (!(await docker.composeFileExists())) {
         logger.error(
-          `docker-compose.yml not found at ${docker.getComposeDir()}`
+          `Compose file not found: ${docker.getComposeFilePath()}`
         );
         logger.info("Run 'elementor-cli preview init' to create one.");
         process.exit(1);
@@ -124,6 +127,8 @@ previewCommand
   .command("stop")
   .description("Stop staging environment (docker compose down)")
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--env-file <path>", "Path to a Compose environment file")
+  .option("--project-name <name>", "Compose project name")
   .addHelpText(
     "after",
     `
@@ -138,7 +143,7 @@ See also:
   )
   .action(async (options) => {
     try {
-      const docker = await DockerManager.create(options.composeFile);
+      const docker = await DockerManager.create(options);
 
       logger.info("Stopping staging environment...");
       await docker.stop();
@@ -155,6 +160,8 @@ previewCommand
   .command("status")
   .description("Show staging status (container status, URL)")
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--env-file <path>", "Path to a Compose environment file")
+  .option("--project-name <name>", "Compose project name")
   .addHelpText(
     "after",
     `
@@ -168,7 +175,7 @@ See also:
   )
   .action(async (options) => {
     try {
-      const docker = await DockerManager.create(options.composeFile);
+      const docker = await DockerManager.create(options);
       const status = await docker.getStatus();
 
       logger.heading("Staging Environment Status");
@@ -197,6 +204,8 @@ previewCommand
   .option("-e, --email <email>", "Email for new user")
   .option("-p, --password <password>", "Password for new user")
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--env-file <path>", "Path to a Compose environment file")
+  .option("--project-name <name>", "Compose project name")
   .option("--skip-mu-plugin", "Skip creating the mu-plugin")
   .option("-y, --yes", "Skip confirmation prompts")
   .addHelpText(
@@ -221,7 +230,7 @@ See also:
   )
   .action(async (options) => {
     try {
-      const docker = await DockerManager.create(options.composeFile);
+      const docker = await DockerManager.create(options);
 
       // Check if staging is running
       const spinner = logger.spinner("Checking staging environment...");
@@ -443,6 +452,8 @@ previewCommand
   .command("sync [page-id]")
   .description("Sync local page changes to staging WordPress")
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--env-file <path>", "Path to a Compose environment file")
+  .option("--project-name <name>", "Compose project name")
   .option("-s, --site <name>", "Site name for local pages")
   .option("-a, --all", "Sync all locally stored pages")
   .option("--no-rewrite-urls", "Disable URL rewriting from production to staging")
@@ -469,7 +480,7 @@ See also:
   )
   .action(async (pageId, options) => {
     try {
-      const docker = await DockerManager.create(options.composeFile);
+      const docker = await DockerManager.create(options);
       const store = await LocalStore.create();
       const parser = new ElementorParser();
       const config = await readConfig();
@@ -593,6 +604,8 @@ previewCommand
   .command("open [page-id]")
   .description("Open staging in browser")
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--env-file <path>", "Path to a Compose environment file")
+  .option("--project-name <name>", "Compose project name")
   .addHelpText(
     "after",
     `
@@ -607,7 +620,7 @@ See also:
   )
   .action(async (pageId, options) => {
     try {
-      const docker = await DockerManager.create(options.composeFile);
+      const docker = await DockerManager.create(options);
 
       let url = docker.getUrl();
       if (pageId) {
@@ -636,6 +649,8 @@ previewCommand
   .command("watch")
   .description("Watch for local changes and auto-sync to staging")
   .option("-c, --compose-file <path>", "Path to docker-compose.yml")
+  .option("--env-file <path>", "Path to a Compose environment file")
+  .option("--project-name <name>", "Compose project name")
   .option("-s, --site <name>", "Site name for local pages")
   .option("--no-rewrite-urls", "Disable URL rewriting from production to staging")
   .addHelpText(
@@ -658,7 +673,7 @@ See also:
   )
   .action(async (options) => {
     try {
-      const docker = await DockerManager.create(options.composeFile);
+      const docker = await DockerManager.create(options);
       const store = await LocalStore.create();
       const parser = new ElementorParser();
       const config = await readConfig();

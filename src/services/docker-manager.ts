@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { mkdir, access, constants } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { readConfig } from "../utils/config-store.js";
 import type { StagingConfig } from "../types/config.js";
 
@@ -14,15 +15,32 @@ export interface DockerStatus {
 
 export type ContainerRuntime = "docker" | "podman";
 
+export interface DockerManagerOptions {
+  composeFile?: string;
+  envFile?: string;
+  projectName?: string;
+}
+
 export class DockerManager {
   private composePath: string;
+  private composeFilePath: string;
+  private explicitComposeFile: boolean;
+  private envFile?: string;
+  private projectName?: string;
   private service: string;
   private url: string;
   private wpCommand: string;
   private containerRuntime: ContainerRuntime;
 
-  constructor(config: StagingConfig) {
-    this.composePath = config.path;
+  constructor(config: StagingConfig, options: DockerManagerOptions = {}) {
+    const cwd = process.cwd();
+    this.explicitComposeFile = Boolean(options.composeFile);
+    this.composeFilePath = options.composeFile
+      ? resolve(cwd, options.composeFile)
+      : join(resolve(cwd, config.path), "docker-compose.yml");
+    this.composePath = dirname(this.composeFilePath);
+    this.envFile = options.envFile ? resolve(cwd, options.envFile) : undefined;
+    this.projectName = options.projectName;
     this.service = config.service;
     this.url = config.url;
     this.wpCommand = config.wpCommand || "wp";
@@ -36,25 +54,21 @@ export class DockerManager {
     return this.containerRuntime;
   }
 
-  static async create(composeFile?: string): Promise<DockerManager> {
+  static async create(
+    options: string | DockerManagerOptions = {},
+  ): Promise<DockerManager> {
     const config = await readConfig();
-
-    if (composeFile) {
-      return new DockerManager({
-        ...config.staging,
-        path: composeFile.replace(/\/docker-compose\.ya?ml$/, ""),
-      });
-    }
-
-    return new DockerManager(config.staging);
+    const resolvedOptions =
+      typeof options === "string" ? { composeFile: options } : options;
+    return new DockerManager(config.staging, resolvedOptions);
   }
 
   getComposeDir(): string {
-    return `${process.cwd()}/${this.composePath}`;
+    return this.composePath;
   }
 
   getComposeFilePath(): string {
-    return `${this.getComposeDir()}/docker-compose.yml`;
+    return this.composeFilePath;
   }
 
   getUrl(): string {
@@ -76,9 +90,13 @@ export class DockerManager {
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       // Use configured container runtime (docker or podman)
-      const composeArgs = this.containerRuntime === "podman"
-        ? ["compose", ...args]  // podman compose
-        : ["compose", ...args]; // docker compose
+      const composeArgs = ["compose"];
+      if (this.explicitComposeFile) {
+        composeArgs.push("--file", this.composeFilePath);
+      }
+      if (this.envFile) composeArgs.push("--env-file", this.envFile);
+      if (this.projectName) composeArgs.push("--project-name", this.projectName);
+      composeArgs.push(...args);
       const proc = spawn(this.containerRuntime, composeArgs, {
         cwd: this.getComposeDir(),
         stdio: options.capture ? ["pipe", "pipe", "pipe"] : "inherit",

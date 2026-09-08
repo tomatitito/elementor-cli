@@ -397,6 +397,12 @@ elementor-cli preview init
 # Start staging
 elementor-cli preview start
 
+# Start an existing Compose project with an explicit environment and project name
+elementor-cli preview start \
+  --compose-file docker/docker-compose.recovery.yml \
+  --env-file recovery/.env \
+  --project-name jukimed-recovery
+
 # Sync local page to staging
 elementor-cli preview sync 42
 

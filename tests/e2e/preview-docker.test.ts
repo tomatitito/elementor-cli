@@ -19,8 +19,16 @@ import { waitForWordPress } from "./util";
 const CLI_PATH = join(import.meta.dir, "../../dist/elementor-cli");
 const TEST_DIR = join(import.meta.dir, "test-preview-env");
 const CONFIG_PATH = join(TEST_DIR, ".elementor-cli.yaml");
-const COMPOSE_PATH = join(TEST_DIR, "docker-compose.yml");
+const COMPOSE_PATH = join(TEST_DIR, "docker-compose.recovery.yml");
 const ENV_PATH = join(TEST_DIR, ".env");
+const PREVIEW_COMPOSE_ARGS = [
+  "--compose-file",
+  "docker-compose.recovery.yml",
+  "--env-file",
+  ".env",
+  "--project-name",
+  "elementor-cli-preview-test",
+];
 
 /**
  * Run the CLI with given arguments
@@ -77,6 +85,8 @@ async function dockerCompose(
       COMPOSE_PATH,
       "--env-file",
       ENV_PATH,
+      "--project-name",
+      "elementor-cli-preview-test",
       ...args,
     ],
     cwd: TEST_DIR,
@@ -105,7 +115,7 @@ describe("E2E: preview commands with Docker", () => {
 
     // Create a .env file to configure the docker-compose template
     const envContent = `
-COMPOSE_PROJECT_NAME=elementor-cli-preview-test
+COMPOSE_PROJECT_NAME=env-project-should-be-overridden
 WORDPRESS_PORT=8889
 MYSQL_PORT=3307
 `;
@@ -128,15 +138,13 @@ pagesDir: .elementor-cli/pages
 `;
     await Bun.write(CONFIG_PATH, configContent);
 
-    // Create docker-compose.yml for the preview environment
-    const composeContent = `name: elementor-cli-preview-test
-
-services:
+    // Create a nonstandard Compose file for the preview environment
+    const composeContent = `services:
   wordpress:
     image: wordpress:6.7-php8.2
     container_name: elementor-cli-preview-test-wp
     ports:
-      - "8889:80"
+      - "\${WORDPRESS_PORT}:80"
     environment:
       WORDPRESS_DB_HOST: db
       WORDPRESS_DB_USER: wordpress
@@ -153,7 +161,7 @@ services:
     container_name: elementor-cli-preview-test-db
     command: --default-authentication-plugin=mysql_native_password
     ports:
-      - "3307:3306"
+      - "\${MYSQL_PORT}:3306"
     environment:
       MYSQL_DATABASE: wordpress
       MYSQL_USER: wordpress
@@ -166,7 +174,7 @@ volumes:
   wordpress_data:
   db_data:
 `;
-    await Bun.write(join(TEST_DIR, "docker-compose.yml"), composeContent);
+    await Bun.write(COMPOSE_PATH, composeContent);
 
     // Clean up any existing containers from previous runs
     await dockerCompose(["down", "-v"]);
@@ -182,10 +190,21 @@ volumes:
 
   describe("preview lifecycle", () => {
     test("preview start spins up containers", async () => {
-      const { output, exitCode } = await runCli(["preview", "start"]);
+      const { output, exitCode } = await runCli([
+        "preview",
+        "start",
+        ...PREVIEW_COMPOSE_ARGS,
+      ]);
 
-      expect(exitCode).toBe(0);
       expect(output).toContain("started");
+      expect(exitCode).toBe(0);
+
+      const projectNetwork = spawn({
+        cmd: ["docker", "network", "inspect", "elementor-cli-preview-test_default"],
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      expect(await projectNetwork.exited).toBe(0);
 
       // Wait for WordPress to be ready
       const isReady = await waitForWordPress(8889, 120000); // Increased timeout
@@ -193,7 +212,11 @@ volumes:
     }, 120000);
 
     test("preview status shows running containers", async () => {
-      const { output, exitCode } = await runCli(["preview", "status"]);
+      const { output, exitCode } = await runCli([
+        "preview",
+        "status",
+        ...PREVIEW_COMPOSE_ARGS,
+      ]);
 
       expect(exitCode).toBe(0);
       expect(output).toContain("Running: Yes");
@@ -218,7 +241,11 @@ volumes:
     }, 10000);
 
     test("preview stop preserves data by default", async () => {
-      const { output, exitCode } = await runCli(["preview", "stop"]);
+      const { output, exitCode } = await runCli([
+        "preview",
+        "stop",
+        ...PREVIEW_COMPOSE_ARGS,
+      ]);
 
       expect(exitCode).toBe(0);
       expect(output).toContain("stopped");
@@ -230,7 +257,11 @@ volumes:
 
     test("preview start after stop preserves data", async () => {
       // Start again
-      const { exitCode } = await runCli(["preview", "start"]);
+      const { exitCode } = await runCli([
+        "preview",
+        "start",
+        ...PREVIEW_COMPOSE_ARGS,
+      ]);
       expect(exitCode).toBe(0);
 
       // Wait for WordPress
@@ -255,7 +286,11 @@ volumes:
     }, 120000);
 
     test("preview stop after restart", async () => {
-      const { output, exitCode } = await runCli(["preview", "stop"]);
+      const { output, exitCode } = await runCli([
+        "preview",
+        "stop",
+        ...PREVIEW_COMPOSE_ARGS,
+      ]);
 
       expect(exitCode).toBe(0);
       expect(output).toContain("stopped");

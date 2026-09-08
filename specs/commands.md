@@ -616,27 +616,35 @@ Local staging environment for previewing changes. Supports existing Docker setup
 elementor-cli preview init [--path <directory>]
 
 # Start staging environment (docker compose up -d)
-elementor-cli preview start [--compose-file <path>]
+elementor-cli preview start [--compose-file <path>] [--env-file <path>] [--project-name <name>]
 
 # Stop staging environment (docker compose down)
-elementor-cli preview stop [--compose-file <path>]
+elementor-cli preview stop [--compose-file <path>] [--env-file <path>] [--project-name <name>]
 
 # Show staging status (container status, URL)
-elementor-cli preview status
+elementor-cli preview status [--compose-file <path>] [--env-file <path>] [--project-name <name>]
+
+# Set up staging for API access
+elementor-cli preview setup [--compose-file <path>] [--env-file <path>] [--project-name <name>]
 
 # Sync local page changes to staging WordPress
-elementor-cli preview sync <page-id> [--compose-file <path>]
+elementor-cli preview sync <page-id> [--compose-file <path>] [--env-file <path>] [--project-name <name>]
 
 # Sync all locally modified pages
 elementor-cli preview sync --all
 
 # Open staging in browser
-elementor-cli preview open [page-id]
+elementor-cli preview open [page-id] [--compose-file <path>] [--env-file <path>] [--project-name <name>]
+
+# Watch for local changes and sync automatically
+elementor-cli preview watch [--compose-file <path>] [--env-file <path>] [--project-name <name>]
 ```
 
 ### Flag Precedence
 
-`--compose-file` flag > `staging.path` in config > auto-detect
+`--compose-file` flag > `staging.path` in config > auto-detect. When using
+`--env-file` or `--project-name`, pass the same values to each preview lifecycle
+command so Compose addresses the same project.
 
 ### Using Existing Docker Setup
 
