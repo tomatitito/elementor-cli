@@ -5,6 +5,18 @@ All notable changes to elementor-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-09-08
+
+### Added
+
+- Added `--env-file` and `--project-name` support to the `preview start`, `stop`, `status`, `setup`, `sync`, `open`, and `watch` commands.
+
+### Fixed
+
+- Honored explicit Compose filenames such as `docker-compose.recovery.yml` instead of rewriting them to `docker-compose.yml`.
+- Passed Compose file, environment file, and project name values consistently through preview lifecycle operations.
+- Preserved Compose's automatic override-file behavior when no explicit `--compose-file` is supplied.
+
 ## [0.5.0] - 2026-09-07
 
 ### Added
