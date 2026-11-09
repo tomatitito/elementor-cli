@@ -1,11 +1,11 @@
 {
-  "current": "4.3.6",
-  "previous_1": "4.3.5",
-  "previous_2": "4.3.3",
-  "last_checked": "2026-11-02",
+  "current": "4.4.0",
+  "previous_1": "4.3.6",
+  "previous_2": "4.3.4",
+  "last_checked": "2026-11-09",
   "test_status": {
-    "4.3.6": "failing",
-    "4.3.5": "pending",
-    "4.3.3": "pending"
+    "4.4.0": "pending",
+    "4.3.6": "pending",
+    "4.3.4": "pending"
   }
 }
